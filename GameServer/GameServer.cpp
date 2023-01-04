@@ -31,6 +31,7 @@ struct Session
 	char recvBuffer[BUFSIZE];
 	int32 recvBytes = 0;
 	int32 sendBytes = 0;
+	WSAOVERLAPPED overlapped = {};
 };
 
 int main()
@@ -75,179 +76,111 @@ int main()
 
 	cout << "Accept" << endl;
 
-	// WSAEventSelect
-	// - 소켓과 관련된 네트워크 이벤트를 [이벤트 객체]를 통해 감지
-	// - 즉, 이벤트를 통해 통지를 받는다.
+	// Overlapped IO (비동기 + 논블로킹 함수)
+	// - Overlapped 함수를 건다 (WSARecv, WSASend)
+	// - 함수가 성공했는지 확인 후
+	//   성공하면, 결과 얻어서 처리
+	//   실패했으면, 사유 확인
+	//       IO 함수가 완료되지 않으면 차후 알려달라고 하기 (완료 통지 받기)
+	//       1) 이벤트 이용
+	//       2) Callback 사용
 
-	// 이벤트 객체 관련 함수들
-	// 생성 : WSACreateEvent (manual reset + non-signaled)
-	// 삭제 : WSACloseEvent
-	// 신호 상태 감지 : WSAWaitForMultipleEvents
-	// 구체적인 네트워크 이벤트 알아내기 : WSAEnumNetworkdEvents
+	// WSASend
+	// WSARecv
+	// AcceptEx
+	// ConnectEx
 
-	// WSAEventSelect : 소켓 ~ 이벤트 연동시켜주는 함수 
-	// - 즉, 소켓 개수 만큼 이벤트를 만들어줘야 한다.
-	// WSAEventSelect(socket, event, networkEvents)
-	// 관찰대상은 socket, 이벤트를 통해 감지 , 어떤 이벤트를 관찰할 것 ?
-	
-	// 관심있는 네트워크 이벤트
-	// FD_ACCEPT  : 접속한 클라 있음 ? (accept)
-	// FD_READ    : 데이터 수신 가능 ? (recv, recvfrom)
-	// FD_WRITE   : 데이터 송신 가능 ? (send)
-	// FD_CLOSE   : 상대가 접속 종료
-	// FD_CONNECT : 통신을 위한 연결 절차 완료
-	// FD_OOB
+	// 1) 비동기 입출력 소켓
+	// 2) WSABUF 배열의 시작 주소 + 개수
+	// 3) 보내고 싶은/받은 바이트 수
+	// 4) 상세 옵션 
+	// 5) WSAOVERLAPPED 구조체 주소값
+	// 6) 입출력 완료되면 운영체제가 호출할 콜백 함수 
 
-	// 주의 사항
-	// - WSAEventSelect 함수를 호출하면, 해당 소켓은 자동으로 넌블로킹 모드로 전환
-	//   즉, 처음에 블로킹 모드로 만들어두었다고 해도 자동으로 넌블로킹 모드로 !
-	// - accept() 함수가 리턴하는 소켓은 listenSocket 과 동일한 속성을 갖는다. 즉, 넌블로킹 모드
-	//   따라서 clientSocket 은 FD_READ, FD_WRITE 등을 다시 등록해야 한다.
-	//   드물게 WSAEWOULDBLOCK 오류가 뜰 수 있으니 예외 처리 필요
-	// - 이벤트 발생 시 , 적절한 소켓 함수 호출해야 한다.
-	//   아니면 다음 번에는 동일 네트워크 이벤트가 발생 X
-	//   ex) FD_READ 이벤트가 발생하면, recv 함수를 호출해야만
-	//       다음 번에도 FD_READ 이벤트를 관찰할 수 있게 되는 것이다.
-	//       즉, 감지를 해줬으니 꺼내써라, 꺼낼 쓸 때까지 감지 안해줌
-	
-	// WSAEventSelect, Select 함수 차이점 ?
-	// - select 함수의 경우, 결과물 있을 때까지 기다렸다가 결과물을 뱉어준다.
-	// - 반면 WSAEventSelect 는 소켓과 이벤트를 연동시켜주기만 한다.
-	//   결과물을 얻는 것은, WSAWaitForMultipleEvents 를 통해 이벤트를 감지하여 얻는다.
+	char sendBuffer[100];
+	WSABUF wsaBuf;
+	wsaBuf.buf = sendBuffer;
+	wsaBuf.len = 100;
 
-	// WSAWaitForMultipleEvents
-	// 1) count (이벤트 개수) , event(이벤트 포인터)
-	// 2) waitAll : 모두 기다림 > 하나만 완료되어도 ok ?
-	// 3) timeout : 타임아웃
-	// 4) 지금은 false
-	// return : 완료된 첫번째 Event 객체(오브젝트) idx
+	// Overlapped 모델 (이벤트 기반)
+	// - 비동기 입출력 지원하는 소켓 생성 + 통지 받기 위한 이벤트 오브젝트 생성
+	// - 비동기 입출력 함수 호출 (1에서 만든 이벤트 오브젝트를 같이 넘겨준다.)
+	// - 비동기 작업이 바로 완료되지 않으면 WSA_IO_PENDING 오류 코드
+	//   운영체제는 이벤트 객체를 signaled 상태로 만들어서 완료 상태 알려준다.
+	// - WSAWaitForMultipleEvents 함수 호출에서 이벤트 객체의 signal 판별
+	// - WSAGetOverlappedResult 호출해서 비동기 입출력 결과 확인 및 데이터 처리
 
-	// WSAEnumNetworkEvents : 완료된 이벤트 오브젝트는 알겠다. 이제 어떤 이벤트가 완료되었는지 확인
-	// 1) socket
-	// 2) eventObject :socket 과 연동된 이벤트 객체 핸들을 넘겨주면
-	//    - 이벤트 객체를 non-signaled 상태로 만들어준다.
-	// 3) networkEvents : 네트워크 이벤트 / 오류 정보가 저장
-
-	vector<WSAEVENT> wsaEvents;
-	vector<Session> sessions;
-	wsaEvents.reserve(100);
-	sessions.reserve(100);
-
-	// listenSocket 을 위한 이벤트 객체
-	WSAEVENT listenEvent = ::WSACreateEvent();
-	wsaEvents.push_back(listenEvent);
-	sessions.push_back(Session{ listenSocket });
-
-	// socket, 이벤트 객체 연동 시키기
-	if (::WSAEventSelect(listenSocket, listenEvent, FD_ACCEPT | FD_CLOSE) == SOCKET_ERROR)
-		return 0;
+	// 1) 비동기 소켓
+	// 2) 넘겨준 overlapped 구조체
+	// 3) 전송된 바이트 수
+	// 4) 비동기 입출력 작업이 끝날 때까지 대기할지
+	//    false
+	// 5) 비동기 입출력 작업 관련 부가 정보. 거의 사용안함
+	// WSAGetOverlappedResult
 
 	while (true)
 	{
-		// 3번째 : false => 하나라도 완료되면 빠져나오기
-		// 즉, signaled 상태가 된 EventObject 가 있다면 빠져나오는 것이다.
-		int32 index = ::WSAWaitForMultipleEvents(wsaEvents.size(), &wsaEvents[0], FALSE, WSA_INFINITE, FALSE);
-		
-		// Error
-		if (index == WSA_WAIT_FAILED)
-			continue;
-		
-		index -= WSA_WAIT_EVENT_0;
+		SOCKADDR_IN clientAddr;
+		int32 addrLen = sizeof(clientAddr);
 
-		// 결과물 받아오기 
-		WSANETWORKEVENTS networkEvents;
-
-		// WSAEnumNetworkEvents 함수 호출 이후, 자동으로 wsaEvents[index] 는 non-signaled 로 바뀐다.
-		if (::WSAEnumNetworkEvents(sessions[index].socket, wsaEvents[index], &networkEvents) == SOCKET_ERROR)
-			continue;
-
-		// Listener 소켓 체크
-		if (networkEvents.lNetworkEvents & FD_ACCEPT)
+		SOCKET clientSocket;
+		while (true)
 		{
-			// Error Check
-			if (networkEvents.iErrorCode[FD_ACCEPT_BIT] != 0)
+			// clientSocket 는 넌블로킹 소켓이 될 것이다.
+		// 즉, 클라이언트 연결 요청이 없어도 return
+			clientSocket = ::accept(listenSocket, (SOCKADDR*)&clientAddr, &addrLen);
+
+			// Connected
+			if (clientSocket != SOCKET_ERROR)
+				break;
+
+			// 아직 연결 요청 X
+			if (::WSAGetLastError() == WSAEWOULDBLOCK)
 				continue;
 
-			// Accept 이벤트가 발생한 것이므로 accept 호출
-			SOCKADDR_IN clientAddr;
-			int32 addrLen = sizeof(clientAddr);
-			SOCKET clientSocket = ::accept(listenSocket, (SOCKADDR*)&clientAddr, &addrLen);
-
-			if (clientSocket != SOCKET_ERROR)
-			{
-				cout << "Cient connected" << endl;
-
-				WSAEVENT clientEvent = ::WSACreateEvent();
-				wsaEvents.push_back(clientEvent);
-				sessions.push_back(Session({ clientSocket }));
-
-				if (::WSAEventSelect(clientSocket, clientEvent, FD_READ | FD_WRITE | FD_CLOSE) == SOCKET_ERROR)
-					return 0;
-			}
+			// 문제 있는 상황
+			return 0;
 		}
 
-		// Client Session 소켓 체크
-		if (networkEvents.lNetworkEvents & FD_READ || networkEvents.lNetworkEvents & FD_WRITE)
+		Session session = Session{ clientSocket };
+		WSAEVENT wsaEvent = ::WSACreateEvent();
+		session.overlapped.hEvent = wsaEvent;
+
+		cout << "Client Connected" << endl;
+
+		while(true)
 		{
-			// Error - Check
-			if ((networkEvents.lNetworkEvents & FD_READ) && (networkEvents.iErrorCode[FD_READ_BIT] != 0))
-				continue;
+			// WSABUF wsaBuf 는 메모리 해제되어도 상관 없다
+			// 핵심은 recvBuffer 이다. 이것은 건드리면 안된다.
+			WSABUF wsaBuf;
+			wsaBuf.buf = session.recvBuffer;
+			wsaBuf.len = BUFSIZE;
 
-			if ((networkEvents.lNetworkEvents & FD_WRITE) && (networkEvents.iErrorCode[FD_WRITE_BIT] != 0))
-				continue;
+			DWORD recvLen = 0;
+			DWORD flags = 0;
 
-			Session& s = sessions[index];
-			
-			// Read
-			if (s.recvBytes == 0)
+			if (::WSARecv(clientSocket, &wsaBuf, 1, &recvLen, &flags, &session.overlapped, nullptr) == SOCKET_ERROR)
 			{
-				// 아무것도 받지 않은 상태
-				int32 recvLen = ::recv(s.socket, s.recvBuffer, BUFSIZE, 0);
-
-				if (recvLen == SOCKET_ERROR)
+				if (::WSAGetLastError() == WSA_IO_PENDING)
 				{
-					// 원래 블록했어야 했는데... 너가 논블로킹으로 하라며
-					if (::WSAGetLastError() == WSAEWOULDBLOCK)
-						continue;
+					// Pending (recv 가 완료되지 않았다면)
+					// 해당 socket 의 이벤트 오브젝트가 signaled 상태가 될 때까지 블로킹 
+					::WSAWaitForMultipleEvents(1, &wsaEvent, TRUE, WSA_INFINITE, FALSE);
 
-					// Error
-					cout << "break" << endl;
+					::WSAGetOverlappedResult(session.socket, &session.overlapped, &recvLen, FALSE, &flags);
+				}
+				else
+				{
+					// 문제 있는 상황
 					break;
 				}
-
-				s.recvBytes = recvLen;
-
-				cout << "Recv data :  " << recvLen << endl;
 			}
 
-			// Write
-			if (s.recvBytes > s.sendBytes)
-			{
-				// 보낼 데이터가 남아있따면
-				int32 sendLen = ::send(s.socket, &s.recvBuffer[s.sendBytes], s.recvBytes - s.sendBytes, 0);
-
-				if (sendLen == SOCKET_ERROR && ::WSAGetLastError() != WSAEWOULDBLOCK)
-				{
-					// 실제 Error
-					continue;
-				}
-
-				s.sendBytes += sendLen;
-
-				if (s.sendBytes == s.recvBytes)
-				{
-					s.sendBytes = 0;
-					s.recvBytes = 0;
-
-					cout << "Send data :  " << sendLen << endl;
-				}
-			}
+			cout << "Data Recv Len : " << recvLen << endl;
 		}
 
-		if (networkEvents.lNetworkEvents & FD_CLOSE)
-		{
-			// Remove Socket
-		}
+		::closesocket(session.socket);
+		::WSACloseEvent(wsaEvent);
 	}
 
 	// 윈속 종료

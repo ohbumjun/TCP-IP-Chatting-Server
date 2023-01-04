@@ -44,5 +44,11 @@
     <Text Include="Select_Server.txt">
       <Filter>StudyDatas</Filter>
     </Text>
+    <Text Include="WSASelect_Server.txt">
+      <Filter>StudyDatas</Filter>
+    </Text>
+    <Text Include="Client_BlockingSendtxt.txt">
+      <Filter>StudyDatas</Filter>
+    </Text>
   </ItemGroup>
 </Project>
