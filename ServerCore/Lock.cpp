@@ -1,12 +1,17 @@
 #include "pch.h"
 #include "Lock.h"
 #include "CoreTLS.h"
+#include "DeadLockProfiler.h"
 
 // 해당 함수 호출 조건
 // 1) 자기가 lock 을 건 상태면 writeCnt 만 증가시키기 
 // 2) 자기를 비롯한 다른 쓰레드들이 read 하고 있지 않을 경우
-void Lock::WriteLock()
+void Lock::WriteLock(const char* name)
 {
+#if _DEBUG
+	GDeadLockProfiler->PushLock(name);
+#endif
+
 	// 동일한 쓰레드가 소유하고 있다면 무조건 성공
 	// - (_lockFlag.load() && WRITE_THREAD_MASK) : 상위 16비트 추출
 	// - >> 16 : 상위 16비트에 있던 것이 내려오게 된다.
@@ -61,8 +66,12 @@ void Lock::WriteLock()
 	}
 }
 
-void Lock::WriteUnlock()
+void Lock::WriteUnlock(const char* name)
 {
+#if _DEBUG
+	GDeadLockProfiler->PopLock(name);
+#endif
+
 	// ReadLock 이 다 풀기 전에는 Write Unlock 불가능하다
 	if ((_lockFlag.load() & READ_COUNT_MAX) != 0)
 		CRASH("INVALID UNLOCK OREDER");
@@ -78,8 +87,12 @@ void Lock::WriteUnlock()
 	}
 }
 
-void Lock::ReadLock()
+void Lock::ReadLock(const char* name)
 {
+#if _DEBUG
+	GDeadLockProfiler->PushLock(name);
+#endif
+
 	// 1) 동일한 쓰레드가 Write Lock 을 잡고 있다면 ?
 	// 그저 read cnt 1 증가
 	// 어차피 WriteLock 을 해당 쓰레드가 잡고 있다는 것은
@@ -125,8 +138,12 @@ void Lock::ReadLock()
 	}
 }
 
-void Lock::ReadUnlock()
+void Lock::ReadUnlock(const char* name)
 {
+#if _DEBUG
+	GDeadLockProfiler->PopLock(name);
+#endif
+
 	// fetch_sub : 값을 감소시키는 함수 + 감소 이전의 값을 리턴
 	if ((_lockFlag.fetch_sub(1) & READ_COUNT_MAX) == 0)
 	{

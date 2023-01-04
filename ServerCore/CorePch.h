@@ -15,9 +15,10 @@
 #include <unordered_set>
 
 #include <Windows.h>
-#include "Lock.h"
 
 using namespace std;
+
+#include "Lock.h"
 
 // Pch :Precompied Header
 
