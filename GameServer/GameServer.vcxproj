@@ -178,6 +178,9 @@
     <ClInclude Include="pch.h" />
     <ClInclude Include="PlayerManager.h" />
   </ItemGroup>
+  <ItemGroup>
+    <Text Include="Select_Server.txt" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

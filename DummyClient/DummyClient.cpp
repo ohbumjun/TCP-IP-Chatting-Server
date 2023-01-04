@@ -13,6 +13,9 @@ void HandleError(const char* cause)
 
 int main()
 {
+	// server 뜨기 전에 접속하지 않도록 대기
+	this_thread::sleep_for(2s);
+
 	WSAData wsaData;
 
 	if (::WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)

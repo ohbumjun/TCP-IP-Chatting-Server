@@ -7,6 +7,9 @@
     <Filter Include="Utils">
       <UniqueIdentifier>{971caa64-4c18-4fd8-aa3e-7cc9784c5d0f}</UniqueIdentifier>
     </Filter>
+    <Filter Include="StudyDatas">
+      <UniqueIdentifier>{21c1bb33-567b-4c56-a905-e5bd41cb59df}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="GameServer.cpp">
@@ -36,5 +39,10 @@
     </ClInclude>
     <ClInclude Include="AccountManager.h" />
     <ClInclude Include="PlayerManager.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Select_Server.txt">
+      <Filter>StudyDatas</Filter>
+    </Text>
   </ItemGroup>
 </Project>
