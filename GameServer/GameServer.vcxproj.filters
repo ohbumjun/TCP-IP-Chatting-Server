@@ -50,5 +50,11 @@
     <Text Include="Client_BlockingSendtxt.txt">
       <Filter>StudyDatas</Filter>
     </Text>
+    <Text Include="Overlapped_EventBased.txt">
+      <Filter>StudyDatas</Filter>
+    </Text>
+    <Text Include="Overlapped_CompletionRouting.txt">
+      <Filter>StudyDatas</Filter>
+    </Text>
   </ItemGroup>
 </Project>
