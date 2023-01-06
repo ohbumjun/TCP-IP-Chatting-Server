@@ -160,8 +160,12 @@
     <ClInclude Include="CorePch.h" />
     <ClInclude Include="CoreTLS.h" />
     <ClInclude Include="DeadLockProfiler.h" />
+    <ClInclude Include="iocpCore.h" />
+    <ClInclude Include="iocpEvent.h" />
     <ClInclude Include="Lock.h" />
+    <ClInclude Include="NetAddress.h" />
     <ClInclude Include="pch.h" />
+    <ClInclude Include="SocketUtils.h" />
     <ClInclude Include="ThreadManager.h" />
     <ClInclude Include="Types.h" />
   </ItemGroup>
@@ -170,13 +174,17 @@
     <ClCompile Include="CorePch.cpp" />
     <ClCompile Include="CoreTLS.cpp" />
     <ClCompile Include="DeadLockProfiler.cpp" />
+    <ClCompile Include="iocpCore.cpp" />
+    <ClCompile Include="iocpEvent.cpp" />
     <ClCompile Include="Lock.cpp" />
+    <ClCompile Include="NetAddress.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="SocketUtils.cpp" />
     <ClCompile Include="ThreadManager.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -18,6 +18,13 @@
 
 using namespace std;
 
+#include <WinSock2.h>
+#include <winsock.h>
+#include <WS2tcpip.h>
+#include <MSWSock.h>
+#pragma comment(lib, "ws2_32.lib")
+
+
 #include "Lock.h"
 
 // Pch :Precompied Header

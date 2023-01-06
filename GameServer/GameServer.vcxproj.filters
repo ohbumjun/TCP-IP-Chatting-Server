@@ -56,5 +56,8 @@
     <Text Include="Overlapped_CompletionRouting.txt">
       <Filter>StudyDatas</Filter>
     </Text>
+    <Text Include="IOCP.txt">
+      <Filter>StudyDatas</Filter>
+    </Text>
   </ItemGroup>
 </Project>

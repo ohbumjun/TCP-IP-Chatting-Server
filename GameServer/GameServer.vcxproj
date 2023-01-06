@@ -180,6 +180,7 @@
   </ItemGroup>
   <ItemGroup>
     <Text Include="Client_BlockingSendtxt.txt" />
+    <Text Include="IOCP.txt" />
     <Text Include="Overlapped_CompletionRouting.txt" />
     <Text Include="Overlapped_EventBased.txt" />
     <Text Include="Select_Server.txt" />
