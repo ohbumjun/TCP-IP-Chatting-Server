@@ -47,6 +47,13 @@ void Session::Send(BYTE* buffer, int32 len)
 	RegisterSend(sendEvent);
 }
 
+// 서버 끼리 연결하는 경우가 있을 수 있다.
+// 그러면 Session 을 이용해서 상대방 서버로 붙는 작업을 해야 할 때가 있다.
+bool Session::Connect()
+{
+	return RegisterConnect();
+}
+
 void Session::Disconnect(const WCHAR* cause)
 {
 	// false 로 세팅하기 이전에 값이 이미 false 라면
@@ -58,10 +65,13 @@ void Session::Disconnect(const WCHAR* cause)
 	wcout << "Disconnect : " << cause << endl;
 
 	OnDisconnected(); // 컨텐츠 코드에서 오버로딩
+
 	SocketUtils::Close(_socket);
 
 	// ref Cnt 감소시키기
 	GetService()->ReleaseSession(GetSessionRef());
+
+	RegisterDisconnect();
 }
 
 HANDLE Session::GetHandle()
@@ -81,6 +91,9 @@ void Session::Dispatch(IocpEvent* iocpEvent, int32 numOfBytes)
 	case EventType::Connect:
 		ProcessConnect();
 		break;
+	case EventType::Disconnect:
+		ProcessDisconnect();
+		break;
 	case EventType::Recv:
 		ProcessRecv(numOfBytes);
 		break;
@@ -92,8 +105,66 @@ void Session::Dispatch(IocpEvent* iocpEvent, int32 numOfBytes)
 	}
 }
 
-void Session::RegisterConnect()
+bool Session::RegisterDisconnect()
 {
+	_disconnectEvent.Init();
+	_disconnectEvent.owner = shared_from_this();
+
+	// 비동기로 Disconnect 요청
+	if (false == SocketUtils::DisconnectEx(_socket, &_disconnectEvent, TF_REUSE_SOCKET, 0))
+	{
+		// TF_REUSE_SOCKET : 소켓이 다시 재사용될 수 있게 준비해준다.
+		int32 errorCode = ::WSAGetLastError();
+
+		if (errorCode != WSA_IO_PENDING)
+		{
+			_disconnectEvent.owner = nullptr;
+			return false;
+		}
+	}
+
+	return true;
+}
+
+bool Session::RegisterConnect()
+{
+	if (IsConnected())
+		return false;
+
+	// 반드시 Client 여야 한다.
+	// Server 의 경우, 상대방이 나한테 붙는 경우이므로 RegisterConnect 는 호출 X
+	if (GetService()->GetSeviceType() != ServiceType::Client)
+		return false;
+
+	// 주소 재사용
+	if (SocketUtils::SetReuseAddress(_socket, true) == false)
+		return false;
+
+	// 소켓에 주소, port 세팅 => 0 을 넘겨주면 여유있는거 아무거나 알아서 세팅해줌
+	// ConnectEx 를 호출해주기 위해서는 반드시 필요하다.
+	if (SocketUtils::BindAnyAddress(_socket, 0) == false)
+		return false;
+
+	_connectEvent.Init();
+	_connectEvent.owner = shared_from_this(); 
+
+	// 어디로 연결할 것인가
+	DWORD numOfBytes = 0;
+	SOCKADDR_IN sockAddr = GetService()->GetNetAddress().GetSockAddr();
+	
+	if (SocketUtils::ConnectEx(_socket, reinterpret_cast<SOCKADDR*>(&sockAddr),
+		sizeof(sockAddr), nullptr, 0, &numOfBytes, &_connectEvent) == false)
+	{
+		int32 errorCode = ::WSAGetLastError();
+
+		if (errorCode != WSA_IO_PENDING)
+		{
+			_connectEvent.owner = nullptr;
+			return false;
+		}
+	}
+
+	return true;
 }
 
 void Session::RegisterRecv()
@@ -175,6 +246,11 @@ void Session::ProcessConnect()
 	// iocpCore->Dispatch => iocpObject->Dispatch => session->Dispatch
 	// => ProcessRecv() 함수 호출
 	RegisterRecv();
+}
+
+void Session::ProcessDisconnect()
+{
+	_disconnectEvent.owner = nullptr;
 }
 
 void Session::ProcessRecv(int32 numOfBytes)

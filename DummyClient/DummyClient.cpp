@@ -1,110 +1,83 @@
 #include "pch.h"
 #include <iostream>
-#include <WinSock2.h>
-#include <winsock.h>
-#include <WS2tcpip.h>
-#pragma comment(lib, "ws2_32.lib")
+#include "ThreadManager.h"
+#include "Service.h"
+#include "Session.h"
 
-void HandleError(const char* cause)
+// Service    : 어떤 역할을 할 것인가 ex) 서버 ? 클라이언트 ?
+//            - 동시 접속자 수에 맞게 Session 생성 및 관리 기능
+// Session    : 실질적인 기능을 담당하는 곳
+//            - 소켓 소유, Recv, Send
+// Listener   : 서버 소켓 => 초기화 및 AcceptEx 함수 등 호출
+// IocpObject : CreateIOCompletionPort, WSARecv 등을 통해 key 값으로 넘겨주기 위한 Object 
+//            - Listener, Service 가 상속받아서 처리한다.
+// IocpEvent  : Accept, Recv, Send 등 다양한 이벤트를 클래스화 시킨 것 -> OVERLAPPED 를 상속
+
+char sendBuffer[] = "Hello World";
+
+// Server 쪽을 대표하는 세션
+class ServerSession : public Session
 {
-	int32 errCode = ::WSAGetLastError();
-	cout << cause << "ErrorCode : " << errCode << endl;
-}
+public:
+	// Client : -> Connect 호출 -> ProcessConnect -> WSARecv 호출 -> 직후 바로 SEnd
+	// -> Server 측으로 먼저 보내진다. -> OnSend 호출 -> 에코서버가 다시 돌려줌
+	// -> 저 위에서 WSARecv 호출해두었으므로 실질적인 Recv 가 호출된다.
+	virtual void OnConnected() override
+	{
+		cout << "Connected To Server" << endl;
+		cout << "Init Send" << endl;
+		Send((BYTE*)sendBuffer, sizeof(sendBuffer));
+	}
+
+	virtual void OnDisconnected() override
+	{
+		cout << "Disconnected" << endl;
+	}
+
+	virtual int32 OnRecv(BYTE* buffer, int32 len)
+	{
+		// Echo
+		cout << "Recv Len Dummy = " << len << endl;
+
+		this_thread::sleep_for(1s);
+
+		// Server 측에서 에코서버 방식으로 데이터 다시 보내주면
+		// 다시 또 보내기 
+		Send((BYTE*)sendBuffer, sizeof(sendBuffer));
+
+		return len;
+	};
+
+	virtual void		OnSend(int32 len)
+	{
+		cout << "OnSend Len Dummy : " << len << endl;
+	}
+};
 
 int main()
 {
 	// server 뜨기 전에 접속하지 않도록 대기
-	this_thread::sleep_for(2s);
+	ClientServiceRef service = std::make_shared<ClientService>(
+		NetAddress(L"127.0.0.1", 7777),
+		std::make_shared<IocpCore>(),
+		[]()->SessionRef {return std::make_shared<ServerSession>(); },
+		// 100 ? => Test 접속자 100명 설정하는 것
+		10);
+	
+	ASSERT_CRASH(service->Start());
 
-	WSAData wsaData;
-
-	if (::WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
-		return 0;
-
-	SOCKET clientSocket = ::socket(AF_INET, SOCK_STREAM, 0);
-
-	if (clientSocket == INVALID_SOCKET)
-		return 0;
-
-	u_long on = 1;
-
-	// 입출력 모드 변경 => 넌블로킹 방식
-	if (::ioctlsocket(clientSocket, FIONBIO, &on) == INVALID_SOCKET)
-		return 0;
-
-	SOCKADDR_IN serverAddr;
-
-	::memset(&serverAddr, 0, sizeof(serverAddr));
-
-	serverAddr.sin_family = AF_INET;
-	// 서버용 : serverAddr.sin_addr.s_addr = ::htonl(INADDR_ANY);
-	::inet_pton(AF_INET, "127.0.0.1", &serverAddr.sin_addr);
-	serverAddr.sin_port = ::htons(7777);
-
-	// connect
-	while(true)
+	for (int32 i = 0; i < 2; ++i)
 	{
-		if (::connect(clientSocket, (SOCKADDR*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR)
-		{
-			// 원래 블록했어야 했는데... 너가 논블로킹으로 하라며
-			if (::WSAGetLastError() == WSAEWOULDBLOCK)
-				continue;
-
-			// 이미 연결된 상태
-			if (::WSAGetLastError() == WSAEISCONN)
-				break;
-
-			// Error : 여기로 오면 진짜 에러가 났다는 의미
-			break;
-		}
+		GThreadManager->Launch([=]()
+			{
+				while (true)
+				{
+					service->GetIocpCore()->Dispatch();
+				}
+			});
 	}
 
-	cout << "connected To server " << endl;
-
-
-
-	// Send
-	while (true)
-	{
-		char sendBuffer[100] = "Hello World";
-		WSAEVENT wsaEvent = ::WSACreateEvent();
-		WSAOVERLAPPED overlapped = {};
-		overlapped.hEvent = wsaEvent;
-
-		WSABUF wsaBuf;
-		wsaBuf.buf = sendBuffer;
-		wsaBuf.len = 100;
-
-		DWORD sendLen = 0;
-		DWORD flags = 0;
-
-		if (::WSASend(clientSocket, &wsaBuf, 1, &sendLen, flags, &overlapped, nullptr) == SOCKET_ERROR)
-		{
-			if (::WSAGetLastError() == WSA_IO_PENDING)
-			{
-				// Pending
-				::WSAWaitForMultipleEvents(1, &wsaEvent, TRUE, WSA_INFINITE, FALSE);
-				::WSAGetOverlappedResult(clientSocket, &overlapped, &sendLen, FALSE, &flags);
-			}
-			else
-			{
-				// ERROR
-				break;
-			}
-		}
-
-		cout << "Send Data : " << sendLen << endl;
-
-		this_thread::sleep_for(1s);
-	}
-
-	cout << "END" << endl;
-
-	// 소켓 리소스 닫기
-	::closesocket(clientSocket);
-
-	// 종료
-	::WSACleanup();
+	GThreadManager->Join();
 
 	return 0;
 }

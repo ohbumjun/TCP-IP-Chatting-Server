@@ -42,7 +42,6 @@ public  :
 	{
 		cout << "OnSend Len Client : " << len << endl;
 	}
-
 };
 
 int main()
@@ -68,5 +67,4 @@ int main()
 	
 	GThreadManager->Join();
 	
-	cout << "Client Connected" << endl;
 }
