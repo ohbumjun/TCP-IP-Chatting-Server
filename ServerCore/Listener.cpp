@@ -31,6 +31,7 @@ bool Listener::StartAccept(NetAddress netAddress)
 		return false;
 
 	// CP 에 소켓 할당 => 해당 소켓에 대한 IO 가 완료되면 CP 에 그 정보 저장된다.
+	// IO 작업 완료 이후 CP 오브젝트에 할당된 쓰레드가 Dispatch 함수를 통해 처리
 	if (GIocpCore.Register(this) == false)
 		return false;
 
