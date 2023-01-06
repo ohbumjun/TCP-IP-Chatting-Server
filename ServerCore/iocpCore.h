@@ -4,7 +4,8 @@
 	IocpObject : iocp 에 등록할 수 있는 대상
 -----------------*/
 
-class IocpObject
+// enable_shared_from_this<IocpObject> : 자기 자신에 대한 Weak Ptr 을 들고 있게 됨
+class IocpObject : public enable_shared_from_this<IocpObject>
 {
 public:
 	// GetHandle() : 소켓 핸들 반환
@@ -25,7 +26,9 @@ public:
 
 	HANDLE		GetHandle() { return _iocpHandle; }
 
-	bool		Register(class IocpObject* iocpObject);
+	// Shared Ptr 을 사용하기로 했다면, 모두 통일해서 사용, raw 와 혼합 X
+	// bool		Register(class IocpObject* iocpObject);
+	bool		Register(IocpObjectRef iocpObject);
 	bool		Dispatch(uint32 timeoutMs = INFINITE);
 
 private:
@@ -34,4 +37,4 @@ private:
 };
 
 // TEMP
-extern IocpCore GIocpCore;
+// extern IocpCore GIocpCore;

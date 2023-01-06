@@ -3,6 +3,7 @@
 #include "SocketUtils.h"
 #include "IocpEvent.h"
 #include "Session.h"
+#include "Service.h"
 
 /*--------------
 	Listener
@@ -22,8 +23,13 @@ Listener::~Listener()
 	}
 }
 
-bool Listener::StartAccept(NetAddress netAddress)
+bool Listener::StartAccept(ServerServiceRef service)
 {
+	_ServerService = service;
+
+	if (_ServerService == nullptr)
+		return false;
+
 	// 서버 소켓 생성
 	_socket = SocketUtils::CreateSocket();
 
@@ -32,7 +38,7 @@ bool Listener::StartAccept(NetAddress netAddress)
 
 	// CP 에 소켓 할당 => 해당 소켓에 대한 IO 가 완료되면 CP 에 그 정보 저장된다.
 	// IO 작업 완료 이후 CP 오브젝트에 할당된 쓰레드가 Dispatch 함수를 통해 처리
-	if (GIocpCore.Register(this) == false)
+	if (_ServerService->GetIocpCore()->Register(shared_from_this()) == false)
 		return false;
 
 	// 이거 안하면 주소가 겹쳐서 서버 실행 안되는 경우 있다.
@@ -44,7 +50,7 @@ bool Listener::StartAccept(NetAddress netAddress)
 		return false;
 
 	// 주소 할당
-	if (SocketUtils::Bind(_socket, netAddress) == false)
+	if (SocketUtils::Bind(_socket, _ServerService->GetNetAddress()) == false)
 		return false;
 	
 	// 연결 요청 대기큐 생성
@@ -52,17 +58,24 @@ bool Listener::StartAccept(NetAddress netAddress)
 		return false;
 
 	// accept 함수를 호출해줌으로써 
-	const int32 acceptCount = 1;
+	const int32 acceptCount = _ServerService->GetMaxSessionCount();
+
 	for (int32 i = 0; i < acceptCount; i++)
 	{
 		AcceptEvent* acceptEvent = new AcceptEvent;
+
+		// Ref 가 1 짜리인 shared_ptr 을 새로 생성해버리는 문제가 된다. (주소값 바로 넘겨주기X)
+		// acceptEvent->owner = std::shared_ptr<IocpObject>(this);
+		// 부모가 Listner 가 된다. 자기 자신에 대한 Weak Ptr 형태를 세팅할 것이다
+		// shared_from_this : 이미 자기 자신을 가리키는 shared_ptr 을 리턴 => ref Cnt 1 증가
+		acceptEvent->owner = shared_from_this();
 
 		_acceptEvents.push_back(acceptEvent);
 
 		RegisterAccept(acceptEvent);
 	}
 
-	return false;
+	return true;
 }
 
 void Listener::CloseSocket()
@@ -78,7 +91,7 @@ HANDLE Listener::GetHandle()
 void Listener::Dispatch(IocpEvent* iocpEvent, int32 numOfBytes)
 {
 	// iocpEvent 는 accept event 여야만 한다.
-	ASSERT_CRASH(iocpEvent->GetType() == EventType::Accept);
+	ASSERT_CRASH(iocpEvent->eventType == EventType::Accept);
 
 	AcceptEvent* acceptEvent = static_cast<AcceptEvent*>(iocpEvent);
 
@@ -87,12 +100,13 @@ void Listener::Dispatch(IocpEvent* iocpEvent, int32 numOfBytes)
 
 void Listener::RegisterAccept(AcceptEvent* acceptEvent)
 {
-	Session* session = new Session;
+	// IOCP 의 CP 에 등록하는 과정도 포함
+	SessionRef session = _ServerService->CreateSession();
 		
 	// Accept Event 에 Session 정보 세팅 => 이후 Listenr::Dispatch 를 통해서
 	// iocpEvent 정보를 뽑아왔을 때 , 어떤 세션을 넘겨줬는지 알 수 있기 때문이다.
 	acceptEvent->Init();
-	acceptEvent->SetSession(session);
+	acceptEvent->_session = session;
 
 	DWORD bytesReceived = 0;
 
@@ -115,14 +129,17 @@ void Listener::RegisterAccept(AcceptEvent* acceptEvent)
 	}
 }
 
+// Accept 요청이 성공하면, 즉, 클라이언트 요청이 실제로 있으면
+// 아래 함수 호출
 // 자. Listner 에서 한번 만들어준 acceptEvent 는 이후 계속해서 재사용하게 된다.
 void Listener::ProcessAccept(AcceptEvent* acceptEvent)
 {
 	// 연결 요청이 되었다면, 해당 요청에 대한 처리를 진행한다.
-	Session* session = acceptEvent->GetSession();
+	// 
+	SessionRef ServerSession = acceptEvent->_session;
 
 	// Listener 소켓과 옵션을 똑같이 맞춰주는 부분
-	if (false == SocketUtils::SetUpdateAcceptSocket(session->GetSocket(), _socket))
+	if (false == SocketUtils::SetUpdateAcceptSocket(ServerSession->GetSocket(), _socket))
 	{
 		// 문제가 있다면, 다시 연결 요청을 받아들이기 
 		RegisterAccept(acceptEvent);
@@ -134,15 +151,18 @@ void Listener::ProcessAccept(AcceptEvent* acceptEvent)
 
 	// 방금 접속한 클라이언트의 정보 추출 
 	// ex) 주소 정보
-	if (SOCKET_ERROR == ::getpeername(session->GetSocket(), 
+	if (SOCKET_ERROR == ::getpeername(ServerSession->GetSocket(),
 		OUT reinterpret_cast<SOCKADDR*>(&sockAddress), &sizeOfSockAddr))
 	{
 		RegisterAccept(acceptEvent);
 		return;
 	}
 
-	// session의 클라이언트 소켓 주소 정보 세팅
-	session->SetNetAddress(NetAddress(sockAddress));
+	// ServerSession에 클라이언트 소켓 주소 정보 세팅 ?
+	ServerSession->SetNetAddress(NetAddress(sockAddress));
+
+	// 해당 클라이언트로부터 데이터를 비동기로 Recv 하는 절차 진행
+	ServerSession->ProcessConnect();
 
 	cout << "Client Connected!" << endl;
 
