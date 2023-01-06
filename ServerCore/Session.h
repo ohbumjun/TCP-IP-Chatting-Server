@@ -21,6 +21,9 @@ public:
 	virtual ~Session();
 
 public:
+	// 실제 데이터를 보내는 함수 
+	// - buffer: 데이터
+	void				Send(BYTE* buffer, int32 len);
 	// 해킹의심 및 상대방 연결이 끊긴 경우, 사유를 인자로 받아서 연결 끊기
 	void				Disconnect(const WCHAR* cause);
 	shared_ptr<Service>	GetService() { return _service.lock(); }
@@ -42,13 +45,13 @@ private:
 	/* 전송 관련 */
 	void				RegisterConnect(); // Client Service 측에서 사용 ?
 	void				RegisterRecv();
-	void				RegisterSend();
+	void				RegisterSend(SendEvent* sendEvent);
 
 	/*Register 과정이 끝난 이후 처리하는 함수들*/
 	void				ProcessConnect();
 	// Register Event 생성 및 비동기 Recv 실행
 	void				ProcessRecv(int32 numOfBytes);
-	void				ProcessSend(int32 numOfBytes);
+	void				ProcessSend(SendEvent* sendEvent, int32 numOfBytes);
 
 	void				HandleError(int32 errorCode);
 
@@ -60,7 +63,7 @@ protected:
 	virtual void		OnDisconnected() { }
 public:
 	// send, recv 와 관련된 Buffer
-	char _recvBuffer[1000];
+	BYTE _recvBuffer[1000];
 
 private:
 	// Service 에 대한 존재를 알아야지만

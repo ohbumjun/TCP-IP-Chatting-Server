@@ -26,6 +26,22 @@
 
 class GameSession : public Session
 {
+public  :
+	virtual int32 OnRecv(BYTE* buffer, int32 len)
+	{
+		// Echo
+		cout << "Recv Len Client = " << len << endl;
+
+		// Echo Server ±â´É
+		Send(buffer, len);
+
+		return len;
+	};
+
+	virtual void		OnSend(int32 len)
+	{
+		cout << "OnSend Len Client : " << len << endl;
+	}
 
 };
 
