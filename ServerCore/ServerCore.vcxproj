@@ -162,9 +162,11 @@
     <ClInclude Include="DeadLockProfiler.h" />
     <ClInclude Include="iocpCore.h" />
     <ClInclude Include="iocpEvent.h" />
+    <ClInclude Include="Listener.h" />
     <ClInclude Include="Lock.h" />
     <ClInclude Include="NetAddress.h" />
     <ClInclude Include="pch.h" />
+    <ClInclude Include="Session.h" />
     <ClInclude Include="SocketUtils.h" />
     <ClInclude Include="ThreadManager.h" />
     <ClInclude Include="Types.h" />
@@ -176,6 +178,7 @@
     <ClCompile Include="DeadLockProfiler.cpp" />
     <ClCompile Include="iocpCore.cpp" />
     <ClCompile Include="iocpEvent.cpp" />
+    <ClCompile Include="Listener.cpp" />
     <ClCompile Include="Lock.cpp" />
     <ClCompile Include="NetAddress.cpp" />
     <ClCompile Include="pch.cpp">
@@ -184,6 +187,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="Session.cpp" />
     <ClCompile Include="SocketUtils.cpp" />
     <ClCompile Include="ThreadManager.cpp" />
   </ItemGroup>

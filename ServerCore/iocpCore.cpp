@@ -39,6 +39,9 @@ bool IocpCore::Dispatch(uint32 timeoutMs)
 	IocpObject* iocpObject = nullptr;
 	IocpEvent* iocpEvent = nullptr;
 
+	// GetQueuedCompletionStatus : 해당 함수는 일감이 없으면, 바로 해당 쓰레드 블로킹 상태에 놓인다.
+	//                             일감이 들어오면, 쓰레드풀에서 특정 쓰레드를 깨우는 방식
+
 	// numOfBytes : 전달된 정보 크기
 	// iocpObject : CreateIoCompletionPort 을 통해 Register 시 넘겨준 Key 값
 	// iocpEvent == overlappedEx : WSARecv 등 함수 호출시 얻어낸 데이터

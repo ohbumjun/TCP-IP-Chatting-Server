@@ -5,6 +5,7 @@
 class NetAddress
 {
 public :
+	NetAddress() = default;
 	NetAddress(SOCKADDR_IN sockAddr);
 	NetAddress(wstring ip, uint16 port);
 

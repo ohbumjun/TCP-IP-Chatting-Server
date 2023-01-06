@@ -54,6 +54,12 @@
     <ClInclude Include="iocpEvent.h">
       <Filter>Network</Filter>
     </ClInclude>
+    <ClInclude Include="Listener.h">
+      <Filter>Network</Filter>
+    </ClInclude>
+    <ClInclude Include="Session.h">
+      <Filter>Network</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="CorePch.cpp">
@@ -87,6 +93,12 @@
       <Filter>Network</Filter>
     </ClCompile>
     <ClCompile Include="iocpEvent.cpp">
+      <Filter>Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Listener.cpp">
+      <Filter>Network</Filter>
+    </ClCompile>
+    <ClCompile Include="Session.cpp">
       <Filter>Network</Filter>
     </ClCompile>
   </ItemGroup>
