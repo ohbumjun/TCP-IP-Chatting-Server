@@ -8,7 +8,7 @@
 ---------------*/
 
 Session::Session() : 
-	_recvBuffer{}
+	_recvBuffer(BUFFER_SIZE)
 {
 	// tcp 소켓 생성
 	_socket = SocketUtils::CreateSocket();
@@ -179,9 +179,14 @@ void Session::RegisterRecv()
 	// - ref cnt 를 1 로 해준다.
 	_recvEvent.owner = shared_from_this();
 
+	// 패킷이 완전체로 왔는지 안왔는지 세팅해야 한다.
+	// - TCP 특성상 데이터 경계가 없기 때문이다.
+	// - 이를 RecvBuffer 를 통해 구현
 	WSABUF wsaBuf;
-	wsaBuf.buf = reinterpret_cast<char*>(_recvBuffer);
-	wsaBuf.len = len32(_recvBuffer);
+	wsaBuf.buf = reinterpret_cast<char*>(_recvBuffer.WritePos());
+
+	// wsaBuf.len : 실제 버퍼 자체가 최대로 받을 수 있는 크기
+	wsaBuf.len = _recvBuffer.FreeSize();
 
 	DWORD numOfBytes = 0;
 	DWORD flags      = 0;
@@ -267,8 +272,35 @@ void Session::ProcessRecv(int32 numOfBytes)
 	// TODO
 	cout << "Recv Data Len = " << numOfBytes << endl;
 
+	// 수신 버퍼에 데이터 쓰기
+	if (_recvBuffer.OnWrite(numOfBytes) == true)
+	{
+		Disconnect(L"On Write Overflow");
+		return;
+	}
+
+	// 지금까지 쌓인 데이터 크기 보기 (누적 데이터 크기)
+	int32 dataSize = _recvBuffer.DataSize();
+
 	// 클라이언트 오버로딩 코드
-	OnRecv(_recvBuffer, numOfBytes);
+	// readPos 로부터 numOfBytes 까지가 실제 지금까지의 누적 데이터 크기
+	// 물론 모든 데이터를 처리하게 될 수도 있고
+	// 데이터 경계에 따라 일부 데이터만 처리하게 될 수도 있다.
+	// processLen : dataSize 중에서 실제 처리한 데이터 크기 
+	int32 processLen = OnRecv(_recvBuffer.ReadPos(), dataSize);
+
+	// 받아들인 데이터 중에서, 실제 처리한 데이터 크기만큼 OnRead 실행
+	if (processLen < 0 || dataSize < processLen || _recvBuffer.OnRead(processLen) == false)
+	{
+		Disconnect(L"On Read Overflow");
+		return;
+	}
+
+	// 자 여기까지
+	// 1) OnRecv 를 통해 WritePos 를 증가
+	// 2) OnRead 를 통해 ReadPos 증가
+	// 마지막으로 커서 정리를 해준다.
+	_recvBuffer.Clean();
 
 	// 수신 등록 => 즉, 다시 한번 계속해서 Recv
 	RegisterRecv();

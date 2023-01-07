@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "IocpCore.h"
 #include "IocpEvent.h"
+#include "RecvBuffer.h"
 #include "NetAddress.h"
 
 class Service;
@@ -16,6 +17,11 @@ class Session : public IocpObject
 	friend class Listener;
 	friend class IocpCore;
 	friend class Service;
+
+	enum
+	{
+		BUFFER_SIZE = 0x10000 // 64KB
+	};
 public:
 	Session();
 	virtual ~Session();
@@ -64,14 +70,12 @@ protected:
 	virtual int32		OnRecv(BYTE* buffer, int32 len) { return len; }
 	virtual void		OnSend(int32 len) { }
 	virtual void		OnDisconnected() { }
-public:
-	// send, recv 와 관련된 Buffer
-	BYTE _recvBuffer[1000];
 
 private:
 	// Service 에 대한 존재를 알아야지만
 	// Service 에 등록하거나 끊거나 하는 기능을 구현할 수 있다.
 	weak_ptr<Service>	_service;
+
 	// 클라이언트 요청을 받아들이는 과정에서 만들어지는 클라이언트 소켓 ?
 	SOCKET			_socket = INVALID_SOCKET;
 	NetAddress		_netAddress = {};
@@ -82,12 +86,15 @@ private:
 	USE_LOCK;
 
 	/* 수신 관련 */
+	// send, recv 와 관련된 Buffer
+	// - recvBuffer 는, 즉, Recv 과정은 한번에 하나의 쓰레드만이 접근 가능하다.?
+	RecvBuffer _recvBuffer;
 
 	/* 송신 관련 */
 
 private:
 						/* IocpEvent 재사용 */
-	// _recvEvent.owner : WSARecv 함수를 호출하기 이전에 + (RegisterRecv)
+	// _recvEvent.owner : WSARecv 함수를 호출하기 이전에 ++ (RegisterRecv)
 	//                    실패 혹은 완료 (ProcessRecv) 하고 -- 
 	RecvEvent			_recvEvent;
 

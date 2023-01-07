@@ -63,6 +63,7 @@
     <ClInclude Include="Service.h">
       <Filter>Network</Filter>
     </ClInclude>
+    <ClInclude Include="RecvBuffer.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="CorePch.cpp">
@@ -107,5 +108,6 @@
     <ClCompile Include="Service.cpp">
       <Filter>Network</Filter>
     </ClCompile>
+    <ClCompile Include="RecvBuffer.cpp" />
   </ItemGroup>
 </Project>

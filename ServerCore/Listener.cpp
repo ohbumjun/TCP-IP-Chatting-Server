@@ -114,7 +114,7 @@ void Listener::RegisterAccept(AcceptEvent* acceptEvent)
 	// 처음에 session->_socket 은 nullptr 이다. 다만, 해당 비동기 함수를 호출하여
 	// 정상적으로 클라이언트 연결이 이루어지면, session->_socket 은 클라이언트 소켓 정보로 채워지게 된다.
 	if (false == SocketUtils::AcceptEx(_socket, session->GetSocket(), 
-		session->_recvBuffer, 0, sizeof(SOCKADDR_IN) + 16, 
+		session->_recvBuffer.WritePos(), 0, sizeof(SOCKADDR_IN) + 16, 
 		sizeof(SOCKADDR_IN) + 16, OUT & bytesReceived, 
 		// AcceptEvent 가 overlapped 를 상속하고 있으므로, 아래의 코드가 가능
 		static_cast<LPOVERLAPPED>(acceptEvent)))
