@@ -17,6 +17,8 @@ void ServerPacketHandler::HandlePacket(BYTE* buffer, int32 len)
 	}
 }
 
+/*
+(기본 버전 2 : 직렬화 사용)
 SendBufferRef ServerPacketHandler::Make_S_TEST(uint64 id, 
 	uint32 hp, uint16 attack, vector<BuffData> buffs, wstring name)
 {
@@ -54,8 +56,10 @@ SendBufferRef ServerPacketHandler::Make_S_TEST(uint64 id,
 
 	return sendBuffer;
 }
+*/
 
 /*
+(기본 버전 1)
 
 // Echo
 cout << "OnRecv Len Server = " << len << endl;

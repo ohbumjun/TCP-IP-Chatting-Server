@@ -23,19 +23,34 @@ void ClientPacketHandler::HandlePacket(BYTE* buffer, int32 len)
 // 2) 가변 데이터 길이가 있는 영역에 데이터를 바로 넣지 않고
 //    가변 데이터를 묘사하는 Header 정보를 넣을 것
 // 3) 그 다음에 가변 데이터 참고하기 
-// [PKT_S_TEST][BufferData, BufferData, BufferData]
-
+// [ PKT_S_TEST ][BuffsListItem BuffsListItem BuffsListItem][ victim victim ] [victim victim]
 // #pragma pack(1)
 // 패킷 송수신 과정에서 동일한 크기로 인식할 수 있게
 // byte padding 방지하기 => ClientPacketHandler 에도 동일하게 적용
 #pragma pack(1)
 struct PKT_S_TEST
 {
-	// 패킷 설계 TEMP 가변 길이 구조체 
 	struct BuffListItem
 	{
 		uint64 buffId;
 		float remainTime;
+
+		// victimsOffset 를 기준으로 [ victim victim ] [victim victim] 가 있게 될 것이다.
+		uint16 victimsOffset;
+		uint16 victimsCount;
+
+		// packet 시작 주소
+		// packet 최종 크기
+		// 지금까지 작업 중인 크기
+		bool Validate(BYTE* packetStart, uint16 packetSize, OUT uint32& size)
+		{
+			if (victimsOffset + victimsCount * sizeof(uint64) > packetSize)
+				return false;
+
+			size += victimsCount * sizeof(uint64);
+
+			return true;
+		}
 	};
 
 	// packet Header 까지 포함시키기
@@ -71,21 +86,34 @@ struct PKT_S_TEST
 		if (size > packetSize)
 			return false;
 
-		// 가변 데이터 크기까지 추가
-		size += buffsCount * sizeof(BuffListItem);
-
-		if (packetSize != size)
-			return false;
 
 		// offset 범위 정상적으로 들어가있는지 체크
 		if (buffsOffset + buffsCount * sizeof(BuffListItem) > packetSize)
 			return false;
+
+		// 가변 데이터 크기까지 추가
+		size += buffsCount * sizeof(BuffListItem);
+
+		// 가변 데이터 내의 또 다른 가변 데이터 Test
+		BuffsList buffList = GetBuffsList();
+
+		for (int32 i = 0; i < buffList.Count(); i++)
+		{
+			// size 에 현재 처리중인 데이터 크기를 누적해서 더해갈 것이다.
+			if (buffList[i].Validate((BYTE*)this, packetSize, OUT size) == false)
+				return false;
+		}
+
+		if (packetSize != size)
+			return false;
+
 
 		return true;
 	}
 
 	// 가변 데이터들의 배열 형태 
 	using BuffsList = PacketList<PKT_S_TEST::BuffListItem>;
+	using BuffsVictimsList = PacketList<uint64>;
 
 	BuffsList GetBuffsList()
 	{
@@ -93,6 +121,13 @@ struct PKT_S_TEST
 		BYTE* data = reinterpret_cast<BYTE*>(this);
 		data += buffsOffset;
 		return BuffsList(reinterpret_cast<PKT_S_TEST::BuffListItem*>(data), buffsCount);
+	}
+
+	BuffsVictimsList GetBuffsVictimList(BuffListItem* buffsItem)
+	{
+		BYTE* data = reinterpret_cast<BYTE*>(this);
+		data += buffsItem->victimsOffset;
+		return BuffsVictimsList(reinterpret_cast<uint64*>(data), buffsItem->victimsCount);
 	}
 };
 
@@ -139,19 +174,26 @@ void ClientPacketHandler::Handle_S_TEST(BYTE* buffer, int32 len)
 	
 	cout << "BufCount : " << pkt->buffsCount << endl;
 
+	/*
 	for (int32 i = 0; i < pkt->buffsCount; i++)
-	{
 		cout << "BufInfo : " << buffs[i].buffId << " " << buffs[i].remainTime << endl;
-	};
 
 	for (auto it = buffs.begin(); it != buffs.end(); ++it)
-	{
 		cout << "BufInfo : " << it->buffId << " " << it->remainTime << endl;
-	}
+	*/
 
 	for (auto& buff : buffs)
 	{
 		cout << "BufInfo : " << buff.buffId << " " << buff.remainTime << endl;
+	
+		PKT_S_TEST::BuffsVictimsList victims = pkt->GetBuffsVictimList(&buff);
+
+		cout << "Victim Count : " << victims.Count() << endl;
+
+		for (auto& victim : victims)
+		{
+			cout << "Victim : " << victim << endl;
+		}
 	}
 
 	wstring name;

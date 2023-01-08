@@ -21,7 +21,7 @@ public:
 	bool			Write(void* src, uint32 len);
 
 	template<typename T>
-	T* Reserve();
+	T* Reserve(uint16 count = 1);
 
 	// 실질적으로 데이터를 쓰는 작업 (l-value, r-value 버전 둘다 만들기)
 	template<typename T>
@@ -37,13 +37,13 @@ private:
 };
 
 template<typename T>
-T* BufferWriter::Reserve()
+T* BufferWriter::Reserve(uint16 count)
 {
-	if (FreeSize() < sizeof(T))
+	if (FreeSize() < sizeof(T) * count)
 		return nullptr;
 
 	T* ret = reinterpret_cast<T*>(&_buffer[_pos]);
-	_pos += sizeof(T);
+	_pos += sizeof(T) * count;
 	return ret;
 }
 
