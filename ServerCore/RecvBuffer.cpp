@@ -4,8 +4,8 @@
 RecvBuffer::RecvBuffer(int32 bufferSize) :
 	_bufferSize(bufferSize)
 {
-	_capacity = _bufferSize * BUFFER_COUNT;
-	_buffer.resize(_bufferSize);
+	_capacity = bufferSize * BUFFER_COUNT;
+	_buffer.resize(_capacity);
 }
 
 RecvBuffer::~RecvBuffer()

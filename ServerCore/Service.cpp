@@ -3,11 +3,10 @@
 #include "Session.h"
 #include "Listener.h"
 
-Service::Service(ServiceType type, NetAddress address, 
-	IocpCoreRef core, SessionFactory factory, int32 maxSessionCnt) :
-	_type(type), _netAddress(address), _iocpCore(core),
-	_sessionFactory(factory), _maxSessionCount(maxSessionCnt)
+Service::Service(ServiceType type, NetAddress address, IocpCoreRef core, SessionFactory factory, int32 maxSessionCount)
+	: _type(type), _netAddress(address), _iocpCore(core), _sessionFactory(factory), _maxSessionCount(maxSessionCount)
 {
+
 }
 
 Service::~Service()

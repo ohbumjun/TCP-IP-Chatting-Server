@@ -38,6 +38,12 @@ void Session::Send(BYTE* buffer, int32 len)
 	SendEvent* sendEvent = new SendEvent;
 	sendEvent->owner = shared_from_this(); // ADD_REF
 	sendEvent->buffer.resize(len);
+
+	/*
+	=> 아래와 같이 매번 복사하는 것은 문제가 될 수 있다.
+	서버의 경우, 특정 클라이언트 유저의 정보를, 다른 유저들에게 뿌려주는 형태가 된다.
+	그러면 모든 유저마다 이와 같이 복사를 해줘야 한다는 것인데 이는 문제가 될 수 있다.
+	*/
 	::memcpy(sendEvent->buffer.data(), buffer, len);
 
 	// RegisterSend 에서 호출되는 WSASend 함수의 경우 멀티쓰레드로부터 안전하지 않다
@@ -65,8 +71,6 @@ void Session::Disconnect(const WCHAR* cause)
 	wcout << "Disconnect : " << cause << endl;
 
 	OnDisconnected(); // 컨텐츠 코드에서 오버로딩
-
-	SocketUtils::Close(_socket);
 
 	// ref Cnt 감소시키기
 	GetService()->ReleaseSession(GetSessionRef());
@@ -152,14 +156,13 @@ bool Session::RegisterConnect()
 	DWORD numOfBytes = 0;
 	SOCKADDR_IN sockAddr = GetService()->GetNetAddress().GetSockAddr();
 	
-	if (SocketUtils::ConnectEx(_socket, reinterpret_cast<SOCKADDR*>(&sockAddr),
-		sizeof(sockAddr), nullptr, 0, &numOfBytes, &_connectEvent) == false)
+	if (false == SocketUtils::ConnectEx(_socket,
+		reinterpret_cast<SOCKADDR*>(&sockAddr), sizeof(sockAddr), nullptr, 0, &numOfBytes, &_connectEvent))
 	{
 		int32 errorCode = ::WSAGetLastError();
-
 		if (errorCode != WSA_IO_PENDING)
 		{
-			_connectEvent.owner = nullptr;
+			_connectEvent.owner = nullptr; // RELEASE_REF
 			return false;
 		}
 	}
@@ -183,6 +186,8 @@ void Session::RegisterRecv()
 	// - TCP 특성상 데이터 경계가 없기 때문이다.
 	// - 이를 RecvBuffer 를 통해 구현
 	WSABUF wsaBuf;
+	BYTE* WritePos = _recvBuffer.WritePos();
+
 	wsaBuf.buf = reinterpret_cast<char*>(_recvBuffer.WritePos());
 
 	// wsaBuf.len : 실제 버퍼 자체가 최대로 받을 수 있는 크기
@@ -192,17 +197,13 @@ void Session::RegisterRecv()
 	DWORD flags      = 0;
 
 	// 아래의 비동기 Recv 가 완료되게 되면, 결과적으로 ProcessRecv() 함수 호출
-	if (SOCKET_ERROR == ::WSARecv(_socket, &wsaBuf, 1,
-		OUT & numOfBytes, OUT &flags, &_recvEvent, nullptr))
+	if (SOCKET_ERROR == ::WSARecv(_socket, &wsaBuf, 1, OUT & numOfBytes, OUT & flags, &_recvEvent, nullptr))
 	{
 		int32 errorCode = ::WSAGetLastError();
-
 		if (errorCode != WSA_IO_PENDING)
 		{
 			HandleError(errorCode);
-
-			// Release Ref (shared ptr --)
-			_recvEvent.owner = nullptr;
+			_recvEvent.owner = nullptr; // RELEASE_REF
 		}
 	}
 }
@@ -220,7 +221,8 @@ void Session::RegisterSend(SendEvent* sendEvent)
 
 	DWORD numOfBytes = 0;
 
-	if (SOCKET_ERROR == ::WSASend(_socket, &wsaBuf, 1, OUT & numOfBytes, 0, sendEvent, nullptr))
+	if (SOCKET_ERROR == ::WSASend(_socket, &wsaBuf, 1, 
+		OUT & numOfBytes, 0, sendEvent, nullptr))
 	{
 		int32 errorCode = ::WSAGetLastError();
 
@@ -238,6 +240,8 @@ void Session::RegisterSend(SendEvent* sendEvent)
 
 void Session::ProcessConnect()
 {
+	_connectEvent.owner = nullptr; // RELEASE_REF
+
 	// 멀티쓰레드 환경
 	_connected.store(true);
 
@@ -267,22 +271,19 @@ void Session::ProcessRecv(int32 numOfBytes)
 	{
 		Disconnect(L"Recv 0");
 		return;
-	};
-
-	// TODO
-	cout << "Recv Data Len = " << numOfBytes << endl;
+	}
 
 	// 수신 버퍼에 데이터 쓰기
-	if (_recvBuffer.OnWrite(numOfBytes) == true)
+	if (_recvBuffer.OnWrite(numOfBytes) == false)
 	{
-		Disconnect(L"On Write Overflow");
+		Disconnect(L"OnWrite Overflow");
 		return;
 	}
 
 	// 지금까지 쌓인 데이터 크기 보기 (누적 데이터 크기)
 	int32 dataSize = _recvBuffer.DataSize();
 
-	// 클라이언트 오버로딩 코드
+	/* 클라이언트 오버로딩 코드 */
 	// readPos 로부터 numOfBytes 까지가 실제 지금까지의 누적 데이터 크기
 	// 물론 모든 데이터를 처리하게 될 수도 있고
 	// 데이터 경계에 따라 일부 데이터만 처리하게 될 수도 있다.
@@ -321,7 +322,7 @@ void Session::ProcessSend(SendEvent* sendEvent, int32 numOfBytes)
 		return;
 	}
 
-	// 컨텐츠 코드에서 오버로딩
+	// 컨텐츠 코드에서 재정의
 	OnSend(numOfBytes);
 }
 

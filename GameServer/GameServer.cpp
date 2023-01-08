@@ -30,7 +30,7 @@ public  :
 	virtual int32 OnRecv(BYTE* buffer, int32 len)
 	{
 		// Echo
-		cout << "Recv Len Client = " << len << endl;
+		cout << "OnRecv Len Server = " << len << endl;
 
 		// Echo Server ±â´É
 		Send(buffer, len);
@@ -40,21 +40,21 @@ public  :
 
 	virtual void		OnSend(int32 len)
 	{
-		cout << "OnSend Len Client : " << len << endl;
+		cout << "OnSend Len Server : " << len << endl;
 	}
 };
 
 int main()
 {
 	ServerServiceRef service = std::make_shared<ServerService>(
-		NetAddress(L"127.0.0.1", 7777) ,
+		NetAddress(L"127.0.0.1", 7777),
 		std::make_shared<IocpCore>()   ,
 		[]()->SessionRef {return std::make_shared<GameSession>(); },
 		100);
 
 	ASSERT_CRASH(service->Start());
 		
-	for (int32 i = 0; i < 5; ++i)
+	for (int32 i = 0; i < 2; ++i)
 	{
 		GThreadManager->Launch([=]()
 			{

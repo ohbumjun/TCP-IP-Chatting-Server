@@ -25,19 +25,18 @@ public:
 	virtual void OnConnected() override
 	{
 		cout << "Connected To Server" << endl;
-		cout << "Init Send" << endl;
 		Send((BYTE*)sendBuffer, sizeof(sendBuffer));
 	}
 
 	virtual void OnDisconnected() override
 	{
-		cout << "Disconnected" << endl;
+		cout << "Client Disconnected" << endl;
 	}
 
 	virtual int32 OnRecv(BYTE* buffer, int32 len)
 	{
 		// Echo
-		cout << "Recv Len Dummy = " << len << endl;
+		cout << "OnRecv Len Dummy = " << len << endl;
 
 		this_thread::sleep_for(1s);
 
@@ -56,13 +55,15 @@ public:
 
 int main()
 {
+	this_thread::sleep_for(2s);
+
 	// server 뜨기 전에 접속하지 않도록 대기
 	ClientServiceRef service = std::make_shared<ClientService>(
 		NetAddress(L"127.0.0.1", 7777),
 		std::make_shared<IocpCore>(),
 		[]()->SessionRef {return std::make_shared<ServerSession>(); },
 		// 100 ? => Test 접속자 100명 설정하는 것
-		10);
+		1);
 	
 	ASSERT_CRASH(service->Start());
 
