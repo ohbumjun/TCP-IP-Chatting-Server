@@ -3,6 +3,7 @@
 #include "ThreadManager.h"
 #include "Service.h"
 #include "Session.h"
+#include "BufferReader.h"
 
 // Service    : 어떤 역할을 할 것인가 ex) 서버 ? 클라이언트 ?
 //            - 동시 접속자 수에 맞게 Session 생성 및 관리 기능
@@ -36,7 +37,7 @@ public:
 		// sendBuffer->CopyData(buffer, len);
 		sendBuffer->Close(sizeof(sendData));
 
-		Send(sendBuffer);
+		// Send(sendBuffer);
 	}
 
 	virtual void OnDisconnected() override
@@ -47,17 +48,39 @@ public:
 	virtual int32 OnRecvPacket(BYTE* buffer, int32 len)
 	{
 		// Echo
-		// cout << "OnRecv Len Dummy = " << len << endl;
 
+		// Helper 클래스 활용하기 
+		BufferReader br(buffer, len);
+
+		PacketHeader header;
+		br >> header;
+
+		uint64 id;
+		uint32 hp;
+		uint16 attack;
+
+		br >> id >> hp >> attack;
+
+		cout << "Id, Hp, Att : " << id << "," << hp << "." << attack << endl;
+
+		char recvBuffer[4096];
+
+		// 중간에 끼어넣은 id, hp, attack 고려하여 size 계산
+		br.Read(recvBuffer, header.size - sizeof(PacketHeader) - 8 - 4 - 2);
+
+		/*
+		(PacketSession 활용)
 		PacketHeader header = *((PacketHeader*)&buffer[0]);
 		cout << "Packet Id, Size : " << header.id << "," << header.size << endl;
 
 		char recvBuffer[4096];
 		::memcpy(recvBuffer, &buffer[4], header.size - sizeof(PacketHeader));
+		*/
 
 		cout << recvBuffer << endl;
 
 		/*
+		(제일 기본적인 형태)
 		this_thread::sleep_for(1s);
 
 		// Server 측에서 에코서버 방식으로 데이터 다시 보내주면

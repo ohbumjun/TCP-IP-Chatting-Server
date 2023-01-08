@@ -8,10 +8,12 @@ class SendBuffer : public enable_shared_from_this<SendBuffer>
 {
 public:
 	// SendBuffer(int32 bufferSize);
-	SendBuffer(SendBufferChunkRef owner, BYTE* buffer, int32 allocSize);
+	SendBuffer(SendBufferChunkRef owner, BYTE* buffer, uint32 allocSize);
 	~SendBuffer();
 
 	BYTE* Buffer() { return _buffer; }
+	// 최초 할당된 크기 
+	uint32 AllocSize() { return _allocSize; }
 	int32 WriteSize() { return _writeSize; }
 
 	// int32 Capacity() { return static_cast<int32>(_buffer.size()); }
