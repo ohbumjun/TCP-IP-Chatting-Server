@@ -3,9 +3,11 @@
 #include "ThreadManager.h"
 #include "DeadLockProfiler.h"
 #include "SocketUtils.h"
+#include "SendBuffer.h"
 
-ThreadManager* GThreadManager = nullptr;
-DeadLockProfiler* GDeadLockProfiler = nullptr;
+SendBufferManager*	GSendBufferManager = nullptr;
+ThreadManager*		GThreadManager = nullptr;
+DeadLockProfiler*	GDeadLockProfiler = nullptr;
 
 // 차후 여러개의 Manager Class 가 만들어질 수 있다.
 // 그리고 Manager Class 들간의 생성 및 해제 순서가 정해져 있을 수 있다.
@@ -21,6 +23,7 @@ CoreGlobal::CoreGlobal()
 {
 	GThreadManager = new ThreadManager();
 	GDeadLockProfiler = new DeadLockProfiler();
+	GSendBufferManager = new SendBufferManager();
 	SocketUtils::Init();
 }
 
@@ -28,6 +31,7 @@ CoreGlobal::~CoreGlobal()
 {
 	delete GThreadManager;
 	delete GDeadLockProfiler;
+	delete GSendBufferManager;
 	SocketUtils::Clear();
 
 }

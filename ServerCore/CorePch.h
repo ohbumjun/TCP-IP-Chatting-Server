@@ -7,6 +7,7 @@
 #include <iostream>
 #include <vector>
 #include <list>
+#include <array>
 #include <queue>
 #include <stack>
 #include <map>

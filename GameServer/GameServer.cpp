@@ -14,6 +14,7 @@
 
 #include "Service.h"
 #include "Session.h"
+#include "GameSession.h"
 
 // Service    : 어떤 역할을 할 것인가 ex) 서버 ? 클라이언트 ?
 //            - 동시 접속자 수에 맞게 Session 생성 및 관리 기능
@@ -24,32 +25,6 @@
 //            - Listener, Service 가 상속받아서 처리한다.
 // IocpEvent  : Accept, Recv, Send 등 다양한 이벤트를 클래스화 시킨 것 -> OVERLAPPED 를 상속
 
-class GameSession : public Session
-{
-public  :
-	virtual int32 OnRecv(BYTE* buffer, int32 len)
-	{
-		// Echo
-		cout << "OnRecv Len Server = " << len << endl;
-
-		// SendBuffer 를 Ref 로 관리하는 이유 ?
-		// - Send 함수 호출 => RegisterSend 호출 => WSASend 호출
-		// - 이 과정동안에 실질적인 SendBuffer 메모리가 유지되어야 한다.
-		SendBufferRef sendBuffer = std::make_shared<SendBuffer>(4096);
-
-		// Echo Server 기능
-		sendBuffer->CopyData(buffer, len);
-
-		Send(sendBuffer);
-
-		return len;
-	};
-
-	virtual void		OnSend(int32 len)
-	{
-		cout << "OnSend Len Server : " << len << endl;
-	}
-};
 
 int main()
 {

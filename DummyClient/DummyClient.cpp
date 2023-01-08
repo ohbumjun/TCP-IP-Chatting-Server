@@ -29,10 +29,12 @@ public:
 		// SendBuffer 를 Ref 로 관리하는 이유 ?
 		// - Send 함수 호출 => RegisterSend 호출 => WSASend 호출
 		// - 이 과정동안에 실질적인 SendBuffer 메모리가 유지되어야 한다.
-		SendBufferRef sendBuffer = std::make_shared<SendBuffer>(4096);
+		SendBufferRef sendBuffer = GSendBufferManager->Open(4096);
+		::memcpy(sendBuffer->Buffer(), sendData, sizeof(sendData));
 
 		// Echo Server 기능
-		sendBuffer->CopyData(sendData, sizeof(sendData));
+		// sendBuffer->CopyData(buffer, len);
+		sendBuffer->Close(sizeof(sendData));
 
 		Send(sendBuffer);
 	}
@@ -51,10 +53,12 @@ public:
 
 		// Server 측에서 에코서버 방식으로 데이터 다시 보내주면
 		// 다시 또 보내기 
-		SendBufferRef sendBuffer = std::make_shared<SendBuffer>(4096);
+		SendBufferRef sendBuffer = GSendBufferManager->Open(4096);
+		::memcpy(sendBuffer->Buffer(), sendData, sizeof(sendData));
 
 		// Echo Server 기능
-		sendBuffer->CopyData(sendData, sizeof(sendData));
+		// sendBuffer->CopyData(buffer, len);
+		sendBuffer->Close(sizeof(sendData));
 
 		Send(sendBuffer);
 
@@ -69,15 +73,16 @@ public:
 
 int main()
 {
+	// server 뜨기 전에 접속하지 않도록 대기
 	this_thread::sleep_for(2s);
 
-	// server 뜨기 전에 접속하지 않도록 대기
+	// 마지막 인자 넘겨준 개수만큼의 Session 생성 => Connect 시도
 	ClientServiceRef service = std::make_shared<ClientService>(
 		NetAddress(L"127.0.0.1", 7777),
 		std::make_shared<IocpCore>(),
 		[]()->SessionRef {return std::make_shared<ServerSession>(); },
 		// 100 ? => Test 접속자 100명 설정하는 것
-		5);
+		1);
 	
 	ASSERT_CRASH(service->Start());
 
