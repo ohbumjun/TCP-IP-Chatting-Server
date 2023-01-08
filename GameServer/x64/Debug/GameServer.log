@@ -1,7 +1,4 @@
-﻿  GameServer.cpp
-  GameSession.cpp
-  ServerPacketHandler.cpp
+﻿  ServerPacketHandler.cpp
 D:\DirectXPersonalProjectFolder\서버프로젝트\GameServer\GameServer\ServerPacketHandler.cpp(17,2): warning C4065: switch문에 'default'가 있으나 'case' 레이블이 없습니다.
-D:\DirectXPersonalProjectFolder\서버프로젝트\GameServer\GameServer\ServerPacketHandler.cpp(42,58): warning C4267: '인수': 'size_t'에서 'uint32'(으)로 변환하면서 데이터가 손실될 수 있습니다.
-  코드를 생성하고 있습니다...
+D:\DirectXPersonalProjectFolder\서버프로젝트\GameServer\GameServer\ServerPacketHandler.cpp(43,35): warning C4267: '=': 'size_t'에서 'uint16'(으)로 변환하면서 데이터가 손실될 수 있습니다.
   GameServer.vcxproj -> D:\DirectXPersonalProjectFolder\서버프로젝트\GameServer\Binary\Debug\GameServer.exe

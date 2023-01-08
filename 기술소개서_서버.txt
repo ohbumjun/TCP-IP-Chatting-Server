@@ -1,5 +1,7 @@
 0) IOCP
 
+1) 소켓 통신 처리 => 비동기 함수 
+
 2) SendBuffer Pooling
 - SendBufferChunk
  => 각 쓰레드마다 1개 (TLS 사용) => 매번 Lock 거는 것 방지 
@@ -9,7 +11,9 @@
 
 3) SendQueue => Scatter - Gather 사용하기 
 
-4) PacketSession 사용 (X)
+4) 패킷 직렬화 
+
+5) PacketSession 사용 (X)
 
 
 (그 외)

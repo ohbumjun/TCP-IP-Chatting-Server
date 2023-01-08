@@ -29,6 +29,34 @@
 // IocpEvent  : Accept, Recv, Send 등 다양한 이벤트를 클래스화 시킨 것 -> OVERLAPPED 를 상속
 
 
+// 패킷 직렬화 (Serialization)
+/*
+class Player
+{
+public :
+	// 자. hp, attack 과 같은 데이터는 상관없다.
+	int32 hp = 0;
+	int32 attack = 0;
+
+	// 하지만
+	// Player가 동적할당되는 주소란, 가상 주소이다.
+	// 프로그램을 실행할 때마다 계속 바뀐다.
+	// 따라서 target 이라는 주소값을 파일에 저장해도
+	// 다음에 프로그램에 띄울 때는 해당 정보는 유효하지 않게 된다.
+	// 곧이곧대로 복구할 수 없는 것이다.
+	// vector 도 마찬가지. 내부적으로 동적 배열을 들고 있으므로
+	
+	// 네트워크 통신에서도 마찬가지이다.
+	// 내 메모리에서의 주소값 정보를 상대에게 넘겨봤자
+	// 아무런 쓸모가 없는 것이다.
+
+	// 직렬화 한다는 것은 [byte 배열 혹은 string 배열]로 만들어서
+	// 상대방에게 보낼 수 있게 만들어준다는 것이다.
+	Player* target = nullptr;
+	vector<int32> buffer;
+};
+*/
+
 int main()
 {
 	ServerServiceRef service = std::make_shared<ServerService>(

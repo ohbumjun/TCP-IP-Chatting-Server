@@ -31,17 +31,23 @@ SendBufferRef ServerPacketHandler::Make_S_TEST(uint64 id,
 
 	// 가변 데이터
 	// - 가변 데이터의 크기 먼저 넣고 + 그 다음 데이터 순차적으로 입력
-	bw << (uint16)buffs.size();
-	for (BuffData& buff : buffs)
+	struct ListHeader
 	{
+		uint16 offset;
+		uint16 count;
+	};
+
+	ListHeader* buffsHeader = bw.Reserve<ListHeader>();
+
+	buffsHeader->offset = bw.WriteSize();
+	buffsHeader->count = buffs.size();
+
+	for (BuffData& buff : buffs)
 		bw << buff.buffId << buff.remainTime;
-	}
 
-	bw << (uint16)name.size();
-
-	bw.Write((void*)name.data(), name.size() * sizeof(WCHAR));
-
+	// 전송하는 총 데이터 크기
 	header->size = bw.WriteSize();
+	// 전송하는 패킷의 ID
 	header->id = S_TEST; // 1 : Test Msg
 
 	sendBuffer->Close(bw.WriteSize());
