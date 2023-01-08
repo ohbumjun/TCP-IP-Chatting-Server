@@ -15,6 +15,7 @@
 #include "Service.h"
 #include "Session.h"
 #include "GameSession.h"
+#include "GameSessionManager.h"
 
 // Service    : 어떤 역할을 할 것인가 ex) 서버 ? 클라이언트 ?
 //            - 동시 접속자 수에 맞게 Session 생성 및 관리 기능
@@ -46,7 +47,28 @@ int main()
 				}
 			});
 	}
+
+	char sendData[] = "Hello From Server";
 	
+	while (true)
+	{
+		// Echo
+		SendBufferRef sendBuffer = GSendBufferManager->Open(4096);
+
+		BYTE* buffer = sendBuffer->Buffer();
+
+		((PacketHeader*)buffer)->size = sizeof(sendData) * sizeof(PacketHeader);
+		((PacketHeader*)buffer)->id = 1; // 1. Hello Msg
+
+		::memcpy(&buffer[4], sendData, sizeof(sendData));
+
+		sendBuffer->Close(sizeof(sendData) * sizeof(PacketHeader));
+
+		GSessionManager.Broadcast(sendBuffer);
+
+		this_thread::sleep_for(250ms);
+	}
+
 	GThreadManager->Join();
 	
 }

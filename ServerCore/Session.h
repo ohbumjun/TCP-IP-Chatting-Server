@@ -107,3 +107,38 @@ private:
 	SendEvent           _sendEvent;
 };
 
+
+/*-----------------
+	PacketSession
+------------------*/
+
+// TCP 데이터 경계가 존재 X
+// 따라서 모든 데이터가 전달되었는지 확인하는 절차 필요하다.
+
+// 패킷을 보낼 때마다 Header 를 추가해서 보낼 것이다.
+struct PacketHeader
+{
+	uint16 size; // 전송하고자 하는 패킷 사이즈
+	uint16 id;   // 프로토콜ID (ex. 1=로그인 요청, 2=이동요청)
+	             // 즉, 해당 ID 를 보고 어떤 내용이 들어있는지 파악할 수 있다.
+};
+
+// 아래와 같이 진행할 것이다.
+// 즉, 앞에 4byte 에 해당하는 PacketHeader 내용을 참조하여, 받은 data 확인
+// [size(2byte)][id(2byte)][data...][size(2byte)][id(2byte)][data...]
+
+class PacketSession : public Session
+{
+public:
+	PacketSession();
+	virtual ~PacketSession();
+
+	PacketSessionRef	GetPacketSessionRef() 
+	{ return static_pointer_cast<PacketSession>(shared_from_this()); }
+
+protected:
+	// sealed : 컨텐츠 단에서 PacketSession 를 상속받은 녀석은 OnRecv 사용 불가
+	virtual int32		OnRecv(BYTE* buffer, int32 len) sealed;
+	// 아래 함수는 컨텐츠 단에서 반드시 구현하게 하기 
+	virtual int32		OnRecvPacket(BYTE* buffer, int32 len) abstract;
+};

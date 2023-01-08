@@ -53,7 +53,6 @@ void Session::Send(SendBufferRef sendBuffer)
 	// 무작위로 호출하게 될 것이다. 중복해서 여러 번 호출될 수도 있다.
 	// ex) 클라이언트가 몬스터 사냥 => 서버 측으로 계속해서 보낼 것이다.
 
-
 	// 현재 RegisterSend 가 걸리지 않은 상태라면 걸어준다.
 	// - RegisterSend => ProcessSend 호출 이후, 순차적으로 다시 RegisterSend 호출
 	// - 즉, WSARecv 가 끝나고, 그 다음 WSARecv 를 호출하고자 한다.
@@ -61,17 +60,29 @@ void Session::Send(SendBufferRef sendBuffer)
 	// - 따라서 현재 Send 함수를 실행하려고 했더니, 이전의 SendEvent 가 끝나지 않았다면
 	// - Queue<SendBufferRef> 에 보관하는 형태로 진행할 것이다.
 
+	if (IsConnected() == false)
+		return;
 
-	// RegisterSend 에서 호출되는 WSASend 함수의 경우 멀티쓰레드로부터 안전하지 않다
-	// 따라서 WRITE_LOCK 을 호출해주어야 한다.
-	WRITE_LOCK;
+	bool registered = false;
 
-	// sendQueue 에 전송하고자 하는 데이터를 밀어넣어준다.
-	_sendQueue.push(sendBuffer);
-
-	if (_sendRegistered.exchange(true) == false)
+	// Register 가 안걸린 상태에서 걸어준다.
 	{
+		// RegisterSend 에서 호출되는 WSASend 함수의 경우 멀티쓰레드로부터 안전하지 않다
+	// 따라서 WRITE_LOCK 을 호출해주어야 한다.
+		WRITE_LOCK;
+
+		// sendQueue 에 전송하고자 하는 데이터를 밀어넣어준다.
+		_sendQueue.push(sendBuffer);
+
 		// 이전의 값이 false 였다면
+		if (_sendRegistered.exchange(true) == false)
+		{
+			registered = true;
+		}
+	}
+
+	if (registered)
+	{
 		// RegisterSend() 에서는 _sendQueue 에 있는 데이터를 꺼내다 보낼 것이다.
 		RegisterSend();
 	}
@@ -94,10 +105,13 @@ void Session::Disconnect(const WCHAR* cause)
 	// TEMP
 	wcout << "Disconnect : " << cause << endl;
 
-	OnDisconnected(); // 컨텐츠 코드에서 오버로딩
+	/*
+	아래 함수 : ProcessDisconnect 로 이동 => 왜 ? GameSessionManager::BroadCast 참고  
+	> OnDisconnected(); // 컨텐츠 코드에서 오버로딩
 
 	// ref Cnt 감소시키기
-	GetService()->ReleaseSession(GetSessionRef());
+	> GetService()->ReleaseSession(GetSessionRef());
+	*/
 
 	RegisterDisconnect();
 }
@@ -330,6 +344,11 @@ void Session::ProcessConnect()
 void Session::ProcessDisconnect()
 {
 	_disconnectEvent.owner = nullptr;
+
+	OnDisconnected(); // 컨텐츠 코드에서 오버로딩
+
+	// ref Cnt 감소시키기
+	GetService()->ReleaseSession(GetSessionRef());
 }
 
 void Session::ProcessRecv(int32 numOfBytes)
@@ -425,4 +444,56 @@ void Session::HandleError(int32 errorCode)
 		cout << "Handle Error : " << errorCode << endl;
 		break;
 	}
+}
+
+
+
+/*-----------------
+	PacketSession
+------------------*/
+
+PacketSession::PacketSession()
+{
+}
+
+PacketSession::~PacketSession()
+{
+}
+
+// TCP 통신에서 데이터가 수신되면, 아래 함수를 실행하게 될 것이다.
+// [size(2)][id(2)][data....][size(2)][id(2)][data....]
+int32 PacketSession::OnRecv(BYTE* buffer, int32 len)
+{
+	// 실제 처리한 데이터 크기 
+	int32 processLen = 0;
+
+	// 즉, 아래와 같은 형태로 여러 패킷이 한꺼번에 오는 거구나 !
+	// 그리고 while 문을 통해서 이를 여러 번 나눠서 처리하고자 하는 것이다.
+	// [size(2)] [id(2)] [data....] [size(2)] [id(2)] [data....] [size(2)][id(2)][data....][size(2)][id(2)][data....]
+	while (true)
+	{
+		int32 dataSize = len - processLen;
+
+		// 최소한 헤더는 파싱할 수 있어야 한다 (4byte 는 보내야 한다는 것이지)
+		if (dataSize < sizeof(PacketHeader))
+			break;
+
+		// 초기 4byte 정보를 새로운 PacketHeader 객체에 복사해주기 
+		PacketHeader header = *(reinterpret_cast<PacketHeader*>(&buffer[processLen]));
+		
+		// 헤더에 기록된 패킷 크기를 파싱할 수 있어야 한다
+		// dataSize    : 지금까지 넘겨받은 데이터 크기 
+		// header.size : size, id, data 크기 전체 크기 
+		if (dataSize < header.size)
+			break;
+
+		// 패킷 조립 성공
+		OnRecvPacket(&buffer[processLen], header.size);
+
+		// 다음 패킷으로 넘어가면 된다.
+		// [size(2)][id(2)][data....] ==> [size(2)][id(2)][data....]
+		processLen += header.size;
+	}
+
+	return processLen;
 }

@@ -16,7 +16,7 @@
 char sendData[] = "Hello World";
 
 // Server 쪽을 대표하는 세션
-class ServerSession : public Session
+class ServerSession : public PacketSession
 {
 public:
 	// Client : -> Connect 호출 -> ProcessConnect -> WSARecv 호출 -> 직후 바로 SEnd
@@ -24,7 +24,7 @@ public:
 	// -> 저 위에서 WSARecv 호출해두었으므로 실질적인 Recv 가 호출된다.
 	virtual void OnConnected() override
 	{
-		cout << "Connected To Server" << endl;
+		// cout << "Connected To Server" << endl;
 
 		// SendBuffer 를 Ref 로 관리하는 이유 ?
 		// - Send 함수 호출 => RegisterSend 호출 => WSASend 호출
@@ -44,11 +44,20 @@ public:
 		cout << "Client Disconnected" << endl;
 	}
 
-	virtual int32 OnRecv(BYTE* buffer, int32 len)
+	virtual int32 OnRecvPacket(BYTE* buffer, int32 len)
 	{
 		// Echo
-		cout << "OnRecv Len Dummy = " << len << endl;
+		// cout << "OnRecv Len Dummy = " << len << endl;
 
+		PacketHeader header = *((PacketHeader*)&buffer[0]);
+		cout << "Packet Id, Size : " << header.id << "," << header.size << endl;
+
+		char recvBuffer[4096];
+		::memcpy(recvBuffer, &buffer[4], header.size - sizeof(PacketHeader));
+
+		cout << recvBuffer << endl;
+
+		/*
 		this_thread::sleep_for(1s);
 
 		// Server 측에서 에코서버 방식으로 데이터 다시 보내주면
@@ -61,13 +70,14 @@ public:
 		sendBuffer->Close(sizeof(sendData));
 
 		Send(sendBuffer);
+		*/
 
 		return len;
 	};
 
 	virtual void		OnSend(int32 len)
 	{
-		cout << "OnSend Len Dummy : " << len << endl;
+		// cout << "OnSend Len Dummy : " << len << endl;
 	}
 };
 
@@ -82,7 +92,7 @@ int main()
 		std::make_shared<IocpCore>(),
 		[]()->SessionRef {return std::make_shared<ServerSession>(); },
 		// 100 ? => Test 접속자 100명 설정하는 것
-		1);
+		1000);
 	
 	ASSERT_CRASH(service->Start());
 

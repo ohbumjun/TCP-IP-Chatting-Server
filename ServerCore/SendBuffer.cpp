@@ -12,6 +12,8 @@ SendBuffer::SendBuffer(SendBufferChunkRef owner, BYTE* buffer, int32 allocSize) 
 
 SendBuffer::~SendBuffer()
 {
+	// SendBufferChunkRef 의 ref cnt 를 1 감소
+	// 결과적으로 0이 되면 SendBufferManager 의 PushGlobal 함수를 호출
 }
 
 // SendBuffer 자신이 할당받은 메모리 중에서 실제 사용하기 
@@ -129,6 +131,7 @@ SendBufferRef SendBufferManager::Open(uint32 size)
 
 SendBufferChunkRef SendBufferManager::Pop()
 {
+	cout << "POP GLOBAL SENDBUFFERCHUNK" << endl;
 	{
 		WRITE_LOCK;
 		if (_sendBufferChunks.empty() == false)
@@ -155,5 +158,13 @@ void SendBufferManager::Push(SendBufferChunkRef buffer)
 
 void SendBufferManager::PushGlobal(SendBufferChunk* buffer)
 {
+	// (참고 : SendBufferManager::Pop())
+	// 주의사항 : SendBufferChunk 의 경우, 각 쓰레드에서 하나씩 사용되는데 
+	// 쓰레드가 종료될 때, 즉, 클라이언트가 종료될 때 계속해서 메모리 해제되지 않고
+	// 재사용되므로 메모리 해제가 되지 않을 수도 있다.
+	// 따라서 정상적으로 메모리 해제가 이루어지는지 확인하기 위해
+	// 로그를 찍어줄 것이다.
+
+	cout << "PUSH GLOBAL SENDBUFFERCHUNK" << endl;
 	GSendBufferManager->Push(SendBufferChunkRef(buffer, PushGlobal));
 }

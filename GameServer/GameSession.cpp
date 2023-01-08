@@ -13,8 +13,16 @@ void GameSession::OnDisconnected()
 	GSessionManager.Remove(static_pointer_cast<GameSession>(shared_from_this()));
 }
 
-int32 GameSession::OnRecv(BYTE* buffer, int32 len)
+int32 GameSession::OnRecvPacket(BYTE* buffer, int32 len)
 {
+	cout << endl;
+
+	PacketHeader header = *((PacketHeader*)&buffer[0]);
+
+	cout << "Packet Id, Size : " << header.id << "," << header.size << endl;
+
+	/*
+
 	// Echo
 	cout << "OnRecv Len Server = " << len << endl;
 
@@ -42,6 +50,8 @@ int32 GameSession::OnRecv(BYTE* buffer, int32 len)
 	// 예를 들어 원본 데이터 크기가 12 라면, 120이렇게 보낸다는 것.
 	for (int i = 0; i < 5; ++i)
 		GSessionManager.Broadcast(sendBuffer);
+
+	*/
 
 	return len;
 }

@@ -1,18 +1,2 @@
-﻿  pch.cpp
-  CoreGlobal.cpp
-  CorePch.cpp
-  CoreTLS.cpp
-  DeadLockProfiler.cpp
-  Listener.cpp
-  Lock.cpp
-  NetAddress.cpp
-  RecvBuffer.cpp
-  SendBuffer.cpp
-  Service.cpp
-  Session.cpp
-  SocketUtils.cpp
-  ThreadManager.cpp
-  iocpCore.cpp
-  iocpEvent.cpp
-  코드를 생성하고 있습니다...
+﻿  SendBuffer.cpp
   ServerCore.vcxproj -> D:\DirectXPersonalProjectFolder\서버프로젝트\GameServer\Libraries\Debug\ServerCore.lib
