@@ -140,5 +140,5 @@ protected:
 	// sealed : 컨텐츠 단에서 PacketSession 를 상속받은 녀석은 OnRecv 사용 불가
 	virtual int32		OnRecv(BYTE* buffer, int32 len) sealed;
 	// 아래 함수는 컨텐츠 단에서 반드시 구현하게 하기 
-	virtual int32		OnRecvPacket(BYTE* buffer, int32 len) abstract;
+	virtual void		OnRecvPacket(BYTE* buffer, int32 len) abstract;
 };

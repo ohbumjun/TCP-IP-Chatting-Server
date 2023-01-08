@@ -172,6 +172,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="PlayerManager.cpp" />
+    <ClCompile Include="ServerPacketHandler.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AccountManager.h" />
@@ -181,6 +182,7 @@
     <ClInclude Include="GameSessionManager.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="PlayerManager.h" />
+    <ClInclude Include="ServerPacketHandler.h" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="Client_BlockingSendtxt.txt" />

@@ -17,6 +17,7 @@
 #include "GameSession.h"
 #include "GameSessionManager.h"
 #include "BufferWriter.h"
+#include "ServerPacketHandler.h"
 
 // Service    : 어떤 역할을 할 것인가 ex) 서버 ? 클라이언트 ?
 //            - 동시 접속자 수에 맞게 Session 생성 및 관리 기능
@@ -53,42 +54,12 @@ int main()
 	
 	while (true)
 	{
-		// Echo
-		SendBufferRef sendBuffer = GSendBufferManager->Open(4096);
-
-		/*
-		BYTE* buffer = sendBuffer->Buffer();
-
-		((PacketHeader*)buffer)->size = sizeof(sendData) + sizeof(PacketHeader);
-		((PacketHeader*)buffer)->id   = 1; // 1. Hello Msg
-
-		::memcpy(&buffer[4], sendData, sizeof(sendData));
-
-		sendBuffer->Close(sizeof(sendData) + sizeof(PacketHeader));
-		*/
-
-		// Helper 함수 사용하기
-		BufferWriter bw(sendBuffer->Buffer(), 4096);
-		
-		// PacketHeader 크기만큼 데이터 쓰기
-		PacketHeader* header = bw.Reserve<PacketHeader>();
-
-		// id(uint64), 체력(uint32), 공격력(uint16)
-		bw << (uint64)1001 << (uint32)100 << (uint16)10;
-
-		// 데이터 또 쓰기 
-		bw.Write(sendData, sizeof(sendData));
-
-		header->size = bw.WriteSize();
-		header->id   = 1;
-
-		sendBuffer->Close(bw.WriteSize());
-
+		vector<BuffData> buffs{ BuffData {100, 1.5f}, BuffData{200, 2.3f}, BuffData {300, 0.7f } };
+		SendBufferRef sendBuffer = ServerPacketHandler::Make_S_TEST(1001, 100, 10, buffs);
 		GSessionManager.Broadcast(sendBuffer);
 
 		this_thread::sleep_for(250ms);
 	}
 
 	GThreadManager->Join();
-	
 }

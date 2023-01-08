@@ -25,8 +25,6 @@ public:
 
 	// 실질적으로 데이터를 쓰는 작업 (l-value, r-value 버전 둘다 만들기)
 	template<typename T>
-	BufferWriter& operator<<(const T& src);
-	template<typename T>
 	BufferWriter& operator<<(T&& src);
 
 private:
@@ -50,17 +48,13 @@ T* BufferWriter::Reserve()
 }
 
 template<typename T>
-BufferWriter& BufferWriter::operator<<(const T& src)
-{
-	*reinterpret_cast<T*>(&_buffer[_pos]) = src;
-	_pos += sizeof(T);
-	return *this;
-}
-
-template<typename T>
 BufferWriter& BufferWriter::operator<<(T&& src)
 {
-	*reinterpret_cast<T*>(&_buffer[_pos]) = std::move(src);
+	// Reference 제거
+	// ex) int& => int
+	using DataType = std::remove_reference_t<T>;
+
+	*reinterpret_cast<DataType*>(&_buffer[_pos]) = std::forward<DataType>(src);
 	_pos += sizeof(T);
 	return *this;
 }

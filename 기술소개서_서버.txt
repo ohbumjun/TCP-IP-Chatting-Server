@@ -14,3 +14,11 @@
 
 (그 외)
 BroadCast ?
+
+--------------------------------------------------------------------------
+영상
+
+=> RecvBuffer, SendBuffer Class 별도 마련 하여 송수신 데이터 관리 
+
+=> 실제 Packet 처리
+    - Client Packet Handler, ServerPacket Handler 처리 
