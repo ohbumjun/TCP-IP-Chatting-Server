@@ -25,10 +25,10 @@ void DeadLockProfiler::PushLock(const char* name)
 	};
 
 	// 잡고 있는 락이 있었다면
-	if (_lockStack.empty() == false)
+	if (LLockStack.empty() == false)
 	{
 		// 기존에 발견되지 않은 케이스라면 데드락 여부 다시 확인
-		const int32 prevId = _lockStack.top();
+		const int32 prevId = LLockStack.top();
 
 		if (lockId != prevId)
 		{
@@ -45,7 +45,7 @@ void DeadLockProfiler::PushLock(const char* name)
 		}
 	}
 
-	_lockStack.push(lockId);
+	LLockStack.push(lockId);
 };
 
 // lockStack 에서 lock 을 꺼내주기
@@ -53,16 +53,16 @@ void DeadLockProfiler::PopLock(const char* name)
 {
 	LockGuard guard(_lock);
 
-	if (_lockStack.empty())
+	if (LLockStack.empty())
 		CRASH("MULTIPLE UNLOCK");
 
 	int32 lockId = _nameToId[name];
 
 	// lock 거는 순서가 잘못되었다는 의미이다.
-	if (_lockStack.top() != lockId)
+	if (LLockStack.top() != lockId)
 		CRASH("MULTIPLE UNLOCK");
 
-	_lockStack.pop();
+	LLockStack.pop();
 }
 
 void DeadLockProfiler::CheckCycle()

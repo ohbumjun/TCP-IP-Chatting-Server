@@ -19,7 +19,27 @@ Session::~Session()
 	SocketUtils::Close(_socket);
 }
 
+/*
 void Session::Send(BYTE* buffer, int32 len)
+{
+	SendEvent* sendEvent = new SendEvent;
+	sendEvent->owner = shared_from_this(); // ADD_REF
+	sendEvent->buffer.resize(len);
+
+	=> 아래와 같이 매번 복사하는 것은 문제가 될 수 있다.
+	서버의 경우, 특정 클라이언트 유저의 정보를, 다른 유저들에게 뿌려주는 형태가 된다.
+	그러면 모든 유저마다 이와 같이 복사를 해줘야 한다는 것인데 이는 문제가 될 수 있다.
+	::memcpy(sendEvent->buffer.data(), buffer, len);
+
+	// RegisterSend 에서 호출되는 WSASend 함수의 경우 멀티쓰레드로부터 안전하지 않다
+	// 따라서 WRITE_LOCK 을 호출해주어야 한다.
+	WRITE_LOCK;
+
+	RegisterSend();
+}
+*/
+
+void Session::Send(SendBufferRef sendBuffer)
 {
 	// 생각할 문제
 	// 1) 버퍼 관리 
@@ -31,26 +51,30 @@ void Session::Send(BYTE* buffer, int32 len)
 
 	// send 는 한번에 한번씩 차례로 지키면서 호출하는 것이 아니라
 	// 무작위로 호출하게 될 것이다. 중복해서 여러 번 호출될 수도 있다.
-	// 따라서 _recvEvent 와 같이 한개를 재사용하는 형식으로 진행하면 안된다.
-	// 매번 동적으로 생성해주는 방법이 있다.
 	// ex) 클라이언트가 몬스터 사냥 => 서버 측으로 계속해서 보낼 것이다.
 
-	SendEvent* sendEvent = new SendEvent;
-	sendEvent->owner = shared_from_this(); // ADD_REF
-	sendEvent->buffer.resize(len);
 
-	/*
-	=> 아래와 같이 매번 복사하는 것은 문제가 될 수 있다.
-	서버의 경우, 특정 클라이언트 유저의 정보를, 다른 유저들에게 뿌려주는 형태가 된다.
-	그러면 모든 유저마다 이와 같이 복사를 해줘야 한다는 것인데 이는 문제가 될 수 있다.
-	*/
-	::memcpy(sendEvent->buffer.data(), buffer, len);
+	// 현재 RegisterSend 가 걸리지 않은 상태라면 걸어준다.
+	// - RegisterSend => ProcessSend 호출 이후, 순차적으로 다시 RegisterSend 호출
+	// - 즉, WSARecv 가 끝나고, 그 다음 WSARecv 를 호출하고자 한다.
+	// - 이를 통해 한번에 데이터를 모아서 패킷을 최소한으로 보낼 수 있다.
+	// - 따라서 현재 Send 함수를 실행하려고 했더니, 이전의 SendEvent 가 끝나지 않았다면
+	// - Queue<SendBufferRef> 에 보관하는 형태로 진행할 것이다.
+
 
 	// RegisterSend 에서 호출되는 WSASend 함수의 경우 멀티쓰레드로부터 안전하지 않다
 	// 따라서 WRITE_LOCK 을 호출해주어야 한다.
 	WRITE_LOCK;
 
-	RegisterSend(sendEvent);
+	// sendQueue 에 전송하고자 하는 데이터를 밀어넣어준다.
+	_sendQueue.push(sendBuffer);
+
+	if (_sendRegistered.exchange(true) == false)
+	{
+		// 이전의 값이 false 였다면
+		// RegisterSend() 에서는 _sendQueue 에 있는 데이터를 꺼내다 보낼 것이다.
+		RegisterSend();
+	}
 }
 
 // 서버 끼리 연결하는 경우가 있을 수 있다.
@@ -102,7 +126,7 @@ void Session::Dispatch(IocpEvent* iocpEvent, int32 numOfBytes)
 		ProcessRecv(numOfBytes);
 		break;
 	case EventType::Send:
-		ProcessSend(static_cast<SendEvent*>(iocpEvent), numOfBytes);
+		ProcessSend(numOfBytes);
 		break;
 	default:
 		break;
@@ -210,19 +234,64 @@ void Session::RegisterRecv()
 
 // 아래 WSASend 라는 비동기 함수가 완료되면
 // ProcessSend 라는 함수 측으로 넘어가게 될 것이다.
-void Session::RegisterSend(SendEvent* sendEvent)
+// - 현재 우리가 만든 방식에서는 한번에 한 쓰레드만 실행하게 될 것이다.
+void Session::RegisterSend()
 {
 	if (IsConnected() == false)
 		return;
 
-	WSABUF wsaBuf;
-	wsaBuf.buf = (char*)sendEvent->buffer.data();
-	wsaBuf.len = (ULONG)sendEvent->buffer.size();
+	// IOCP 에 WSASend 함수를 호출할 준비를 해준다.
+	_sendEvent.Init();
+	_sendEvent.owner = shared_from_this();
+
+	// Send() 함수에서 _sendQueud 에 넘겨준 데이터를 꺼내서 사용할 것이다.
+	// 보낼 데이터를 sendEvent 에 등록
+	// 즉, sendEvent 클래스에 있는 sendBuffer 에 옮겨준다는 것이다.
+	// 왜 ? WSASend 를 하는 순간 해당 sendBuffer 가 없어지지 않게
+	// Ref Cnt 를 유지시켜줘야 한다.
+	// 이 Queue 에 빼는 순간 Ref Cnt 가 1 감소하여 사라질 수 있기 때문에
+	// 한번 더 여기서 보관해주는 것이다.
+	{
+		WRITE_LOCK;
+
+		int32 writeSize = 0;
+
+		while (_sendQueue.empty() == false)
+		{
+			SendBufferRef sendBuffer = _sendQueue.front();
+
+			writeSize += sendBuffer->WriteSize();
+
+			// TODO 
+			// SendBuffer 도 초기에 정한 최대 크기가 있다.
+			// 따라서 너무 많은 데이터를 한번에 보내지 않게 할 것이다.
+
+			_sendQueue.pop();
+			_sendEvent.sendBuffers.push_back(sendBuffer);
+		}
+	}
+
+	// Scatter Gather (흩어져 있는 데이터들을 모아서 한방에 보낸다.)
+	// ex) 10개가 쌓여있었다면, 10개를 한번에 보내기
+	// 즉, 흩어져 있는 데이터를 한번에 보내기 
+	// Send 에서 _sendRegistered 가 true 라면, 즉, 이전에 보낸 데이터에 대한
+	//      통지가 완료되지 않은 경우에믄, _sendQueue 에 데이터가 쌓이게 된다
+	//      그 다음에 전송할 때는 _sendQueue 에 있던 데이터를 한번에 보낸다.
+	vector<WSABUF> wsaBufs;
+	wsaBufs.reserve(_sendEvent.sendBuffers.size());
+
+	for (SendBufferRef sendBuffer : _sendEvent.sendBuffers)
+	{
+		WSABUF wsaBuf;
+		wsaBuf.buf = reinterpret_cast<char*>(sendBuffer->Buffer());
+		wsaBuf.len = static_cast<LONG>(sendBuffer->WriteSize());
+		wsaBufs.push_back(wsaBuf);
+	}
 
 	DWORD numOfBytes = 0;
 
-	if (SOCKET_ERROR == ::WSASend(_socket, &wsaBuf, 1, 
-		OUT & numOfBytes, 0, sendEvent, nullptr))
+	if (SOCKET_ERROR == ::WSASend(_socket, wsaBufs.data(), static_cast<DWORD>(wsaBufs.size()),
+		OUT & numOfBytes, 0, &_sendEvent, nullptr))
 	{
 		int32 errorCode = ::WSAGetLastError();
 
@@ -230,10 +299,11 @@ void Session::RegisterSend(SendEvent* sendEvent)
 		{
 			HandleError(errorCode);
 
-			sendEvent->owner = nullptr;
+			_sendEvent.owner = nullptr; // Release Ref
 
-			if (sendEvent)
-				delete sendEvent;
+			_sendEvent.sendBuffers.clear(); // Release Ref
+
+			_sendRegistered.store(false);
 		}
 	}
 }
@@ -310,11 +380,14 @@ void Session::ProcessRecv(int32 numOfBytes)
 // 해당 함수는 여러 개의 쓰레드에서 순서가 보장되지 않은 채 실행될 수 있다.
 // 왜냐하면 iocpCore->Dispatch 함수를 통해 아래 함수가 최종 실행되는데
 // 이때 A,B,C,D 순서로 send 해도 , 이 순서대로 실행되지는 않는 것이다(send 완료 순서 보장 X)
-void Session::ProcessSend(SendEvent* sendEvent, int32 numOfBytes)
+void Session::ProcessSend(int32 numOfBytes)
 {
+	// 전송 완료 
+	_sendEvent.owner = nullptr; // Release Ref
+	_sendEvent.sendBuffers.clear(); // Release Ref
+
 	// 기존에 늘려놨던 ref 를 1 감소 (볼일 다 봤다)
-	sendEvent->owner = nullptr; // RELEASE_REF
-	delete(sendEvent);
+	_sendEvent.owner = nullptr; // RELEASE_REF
 
 	if (numOfBytes == 0)
 	{
@@ -324,6 +397,19 @@ void Session::ProcessSend(SendEvent* sendEvent, int32 numOfBytes)
 
 	// 컨텐츠 코드에서 재정의
 	OnSend(numOfBytes);
+
+	WRITE_LOCK;
+
+	if (_sendQueue.empty())
+		_sendRegistered.store(false);
+	else
+	{
+		// 비동기가 완료되기 이전에, 즉 중간 과정에
+		// 누군가 sendQueue 에 데이터를 밀어넣게 된 것이다.
+		// 다시 한번 RegisterSend. 즉, ProcessSend 를 호출해준 녀석이
+		// 계속해서 전송을 담당하게 한다는 것이다.
+		RegisterSend();
+	}
 }
 
 void Session::HandleError(int32 errorCode)

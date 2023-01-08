@@ -15,7 +15,7 @@ void Lock::WriteLock(const char* name)
 	// 동일한 쓰레드가 소유하고 있다면 무조건 성공
 	// - (_lockFlag.load() && WRITE_THREAD_MASK) : 상위 16비트 추출
 	// - >> 16 : 상위 16비트에 있던 것이 내려오게 된다.
-	const uint32 lockThreadId = (_lockFlag.load() && WRITE_THREAD_MASK) >> 16;
+	const uint32 lockThreadId = (_lockFlag.load() & WRITE_THREAD_MASK) >> 16;
 	
 	// 현재 해당 함수를 호출하고 있는 쓰레드와 동일하다면
 	// 동일한 쓰레드가 소유한 상태에서 또 lock 을 거는 것이므로

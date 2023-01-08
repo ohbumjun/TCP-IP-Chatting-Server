@@ -13,7 +13,7 @@
 //            - Listener, Service 가 상속받아서 처리한다.
 // IocpEvent  : Accept, Recv, Send 등 다양한 이벤트를 클래스화 시킨 것 -> OVERLAPPED 를 상속
 
-char sendBuffer[] = "Hello World";
+char sendData[] = "Hello World";
 
 // Server 쪽을 대표하는 세션
 class ServerSession : public Session
@@ -25,7 +25,16 @@ public:
 	virtual void OnConnected() override
 	{
 		cout << "Connected To Server" << endl;
-		Send((BYTE*)sendBuffer, sizeof(sendBuffer));
+
+		// SendBuffer 를 Ref 로 관리하는 이유 ?
+		// - Send 함수 호출 => RegisterSend 호출 => WSASend 호출
+		// - 이 과정동안에 실질적인 SendBuffer 메모리가 유지되어야 한다.
+		SendBufferRef sendBuffer = std::make_shared<SendBuffer>(4096);
+
+		// Echo Server 기능
+		sendBuffer->CopyData(sendData, sizeof(sendData));
+
+		Send(sendBuffer);
 	}
 
 	virtual void OnDisconnected() override
@@ -42,7 +51,12 @@ public:
 
 		// Server 측에서 에코서버 방식으로 데이터 다시 보내주면
 		// 다시 또 보내기 
-		Send((BYTE*)sendBuffer, sizeof(sendBuffer));
+		SendBufferRef sendBuffer = std::make_shared<SendBuffer>(4096);
+
+		// Echo Server 기능
+		sendBuffer->CopyData(sendData, sizeof(sendData));
+
+		Send(sendBuffer);
 
 		return len;
 	};
@@ -63,7 +77,7 @@ int main()
 		std::make_shared<IocpCore>(),
 		[]()->SessionRef {return std::make_shared<ServerSession>(); },
 		// 100 ? => Test 접속자 100명 설정하는 것
-		1);
+		5);
 	
 	ASSERT_CRASH(service->Start());
 

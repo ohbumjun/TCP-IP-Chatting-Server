@@ -32,8 +32,15 @@ public  :
 		// Echo
 		cout << "OnRecv Len Server = " << len << endl;
 
+		// SendBuffer 를 Ref 로 관리하는 이유 ?
+		// - Send 함수 호출 => RegisterSend 호출 => WSASend 호출
+		// - 이 과정동안에 실질적인 SendBuffer 메모리가 유지되어야 한다.
+		SendBufferRef sendBuffer = std::make_shared<SendBuffer>(4096);
+
 		// Echo Server 기능
-		Send(buffer, len);
+		sendBuffer->CopyData(buffer, len);
+
+		Send(sendBuffer);
 
 		return len;
 	};

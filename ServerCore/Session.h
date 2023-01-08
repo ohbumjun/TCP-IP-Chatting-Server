@@ -29,7 +29,8 @@ public:
 public:
 	// 실제 데이터를 보내는 함수 
 	// - buffer: 데이터
-	void				Send(BYTE* buffer, int32 len);
+	// void				Send(BYTE* buffer, int32 len);
+	void				Send(SendBufferRef sendBuffer);
 	bool                Connect();
 	// 해킹의심 및 상대방 연결이 끊긴 경우, 사유를 인자로 받아서 연결 끊기
 	void				Disconnect(const WCHAR* cause);
@@ -53,14 +54,14 @@ private:
 	bool				RegisterDisconnect(); // Client Service 측에서 사용 ?
 	bool				RegisterConnect(); // Client Service 측에서 사용 ?
 	void				RegisterRecv();
-	void				RegisterSend(SendEvent* sendEvent);
+	void				RegisterSend();
 
 	/*Register 과정이 끝난 이후 처리하는 함수들*/
 	void				ProcessDisconnect();
 	void				ProcessConnect();
 	// Register Event 생성 및 비동기 Recv 실행
 	void				ProcessRecv(int32 numOfBytes);
-	void				ProcessSend(SendEvent* sendEvent, int32 numOfBytes);
+	void				ProcessSend(int32 numOfBytes);
 
 	void				HandleError(int32 errorCode);
 
@@ -91,7 +92,9 @@ private:
 	RecvBuffer _recvBuffer;
 
 	/* 송신 관련 */
-
+	queue<SendBufferRef> _sendQueue;
+	// 멀티쓰레드 환경 고려하기
+	Atomic<bool> _sendRegistered = false;
 private:
 						/* IocpEvent 재사용 */
 	// _recvEvent.owner : WSARecv 함수를 호출하기 이전에 ++ (RegisterRecv)
@@ -101,5 +104,6 @@ private:
 	// Client 의 경우, Server에 Connect 하는 Event
 	DisconnectEvent        _disconnectEvent;
 	ConnectEvent        _connectEvent;
+	SendEvent           _sendEvent;
 };
 

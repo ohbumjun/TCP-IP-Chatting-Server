@@ -98,5 +98,5 @@ public:
 	SendEvent() : IocpEvent(EventType::Send) { }
 
 	// 임시로 Send 시에 보내는 데이터를 저장해둘 것이다
-	vector<BYTE> buffer;
+	vector<SendBufferRef> sendBuffers;
 };

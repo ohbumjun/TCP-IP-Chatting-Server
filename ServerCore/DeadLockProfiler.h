@@ -19,12 +19,17 @@ private :
 private :
 	unordered_map<const char*, int32> _nameToId;
 	unordered_map<int32, const char*> _idToName;
-	stack<int32>					  _lockStack;
+
 	// key : 특정 정점 => 해당 정점을 시작으로 하여 타고타고 가는
 	// 간선 정보들을 set<int32> 에 모아두는 것이다.
 	map<int32, set<int32>>			  _lockHistory;
 
 	Mutex _lock;
+
+	// _lockStack 을 TLS 로 만들어줄 것이다.
+	// 즉, 쓰레드마다 걸고 있는 lock 의 순서, _lockStack 이 다르게 될 것이다.
+	// (CoreTLS 참고)
+	// stack<int32>					  LLockStack;
 
 private :
 	// cycle 검사할 때 필요한 중간 임시 변수들
