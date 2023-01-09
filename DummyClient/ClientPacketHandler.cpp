@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "ClientPacketHandler.h"
 #include "BufferReader.h"
+#include "Protocol.pb.h"
 
 void ClientPacketHandler::HandlePacket(BYTE* buffer, int32 len)
 {
@@ -18,6 +19,35 @@ void ClientPacketHandler::HandlePacket(BYTE* buffer, int32 len)
 	}
 }
 
+void ClientPacketHandler::Handle_S_TEST(BYTE* buffer, int32 len)
+{
+	Protocol::S_TEST pkt;
+
+	// ParseFromArray : 바이트 배열에서 데이터를 추출해서 pkt 를 만들어주기 
+	// + sizeof(PacketHeader) : PacketHeader 크기만큼 건너뛰어서 실제 데이터에 접근
+	ASSERT_CRASH(pkt.ParseFromArray(buffer + sizeof(PacketHeader), len - sizeof(PacketHeader)));
+
+	cout << pkt.id() << " " << pkt.hp() << " " << pkt.attack() << endl;
+
+	cout << "BUFSIZE : " << pkt.buffs_size() << endl;
+
+	for (auto& buf : pkt.buffs())
+	{
+		cout << "BUFINFO : " << buf.buffid() << " " << buf.remaintime() << endl;
+		cout << "VICTIMS : " << buf.victims_size() << endl;
+		for (auto& vic : buf.victims())
+		{
+			cout << vic << " ";
+		}
+
+		cout << endl;
+	}
+}
+
+/*
+(구글 protobuf 말고, 자체 Packet 만들어서 , 직렬화 한 코드) -------------------
+*/
+
 
 // 1) 고정된 크기 데이터 몰빵
 // 2) 가변 데이터 길이가 있는 영역에 데이터를 바로 넣지 않고
@@ -27,6 +57,7 @@ void ClientPacketHandler::HandlePacket(BYTE* buffer, int32 len)
 // #pragma pack(1)
 // 패킷 송수신 과정에서 동일한 크기로 인식할 수 있게
 // byte padding 방지하기 => ClientPacketHandler 에도 동일하게 적용
+/*
 #pragma pack(1)
 struct PKT_S_TEST
 {
@@ -140,26 +171,20 @@ void ClientPacketHandler::Handle_S_TEST(BYTE* buffer, int32 len)
 	if (len < sizeof(PKT_S_TEST))
 		return;
 
-	/*
-	1번째 방법 : 각 원소들을 하나하나 받는 방식
-	PacketHeader header;
-	br >> header;
-	uint64 id;
-	uint32 hp;
-	uint16 attack;
-	br >> id >> hp >> attack;
-	cout << "Id, Hp, Att : " << id << "," << hp << "." << attack << endl;
-	*/
-	
-	/*
-	2번째 : 직렬화 1st => 임시 객체 만들어서 데이터 받기 
-	PKT_S_TEST pkt;
-	br >> pkt;
-	*/
+	// 1번째 방법 : 각 원소들을 하나하나 받는 방식
+	// PacketHeader header;
+	// br >> header;
+	// uint64 id;
+	// uint32 hp;
+	// uint16 attack;
+	// br >> id >> hp >> attack;
+	// cout << "Id, Hp, Att : " << id << "," << hp << "." << attack << endl;
 
-	/*
-	3번째 : 직렬화 2nd => 임시 객체 안만들고 buffer 에서 바로 받아오기 
-	*/
+	// 2번째 : 직렬화 1st => 임시 객체 만들어서 데이터 받기
+	// PKT_S_TEST pkt;
+	// br >> pkt;
+
+	// 3번째 : 직렬화 2nd => 임시 객체 안만들고 buffer 에서 바로 받아오기
 	PKT_S_TEST* pkt = reinterpret_cast<PKT_S_TEST*>(buffer);
 
 	if (pkt->Validate() == false)
@@ -171,21 +196,19 @@ void ClientPacketHandler::Handle_S_TEST(BYTE* buffer, int32 len)
 	// vector<PKT_S_TEST::BuffListItem> buffs;
 	// buffs.resize(pkt->buffsCount);
 	PKT_S_TEST::BuffsList buffs = pkt->GetBuffsList();
-	
+
 	cout << "BufCount : " << pkt->buffsCount << endl;
 
-	/*
-	for (int32 i = 0; i < pkt->buffsCount; i++)
-		cout << "BufInfo : " << buffs[i].buffId << " " << buffs[i].remainTime << endl;
-
-	for (auto it = buffs.begin(); it != buffs.end(); ++it)
-		cout << "BufInfo : " << it->buffId << " " << it->remainTime << endl;
-	*/
+	// for (int32 i = 0; i < pkt->buffsCount; i++)
+	// 	cout << "BufInfo : " << buffs[i].buffId << " " << buffs[i].remainTime << endl;
+	// 
+	// for (auto it = buffs.begin(); it != buffs.end(); ++it)
+	// 	cou
 
 	for (auto& buff : buffs)
 	{
 		cout << "BufInfo : " << buff.buffId << " " << buff.remainTime << endl;
-	
+
 		PKT_S_TEST::BuffsVictimsList victims = pkt->GetBuffsVictimList(&buff);
 
 		cout << "Victim Count : " << victims.Count() << endl;
@@ -206,3 +229,4 @@ void ClientPacketHandler::Handle_S_TEST(BYTE* buffer, int32 len)
 	wcout.imbue(std::locale("kor"));
 	wcout << name << endl;
 };
+*/

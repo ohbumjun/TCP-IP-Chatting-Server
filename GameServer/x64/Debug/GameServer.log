@@ -1,12 +1,6 @@
 ﻿  GameServer.cpp
-D:\DirectXPersonalProjectFolder\서버프로젝트\GameServer\GameServer\ServerPacketHandler.h(179,50): warning C4244: '=': 'uint64'에서 'uint16'(으)로 변환하면서 데이터가 손실될 수 있습니다.
-D:\DirectXPersonalProjectFolder\서버프로젝트\GameServer\GameServer\ServerPacketHandler.h(190,59): warning C4244: '=': 'uint64'에서 'uint16'(으)로 변환하면서 데이터가 손실될 수 있습니다.
   GameSession.cpp
-D:\DirectXPersonalProjectFolder\서버프로젝트\GameServer\GameServer\ServerPacketHandler.h(179,50): warning C4244: '=': 'uint64'에서 'uint16'(으)로 변환하면서 데이터가 손실될 수 있습니다.
-D:\DirectXPersonalProjectFolder\서버프로젝트\GameServer\GameServer\ServerPacketHandler.h(190,59): warning C4244: '=': 'uint64'에서 'uint16'(으)로 변환하면서 데이터가 손실될 수 있습니다.
   ServerPacketHandler.cpp
-D:\DirectXPersonalProjectFolder\서버프로젝트\GameServer\GameServer\ServerPacketHandler.h(179,50): warning C4244: '=': 'uint64'에서 'uint16'(으)로 변환하면서 데이터가 손실될 수 있습니다.
-D:\DirectXPersonalProjectFolder\서버프로젝트\GameServer\GameServer\ServerPacketHandler.h(190,59): warning C4244: '=': 'uint64'에서 'uint16'(으)로 변환하면서 데이터가 손실될 수 있습니다.
-D:\DirectXPersonalProjectFolder\서버프로젝트\GameServer\GameServer\ServerPacketHandler.cpp(17,2): warning C4065: switch문에 'default'가 있으나 'case' 레이블이 없습니다.
+D:\DirectXPersonalProjectFolder\서버프로젝트\ProtoBufSrcCode\GameServer\ServerPacketHandler.cpp(17,2): warning C4065: switch문에 'default'가 있으나 'case' 레이블이 없습니다.
   코드를 생성하고 있습니다...
-  GameServer.vcxproj -> D:\DirectXPersonalProjectFolder\서버프로젝트\GameServer\Binary\Debug\GameServer.exe
+  GameServer.vcxproj -> D:\DirectXPersonalProjectFolder\서버프로젝트\ProtoBufSrcCode\Binary\Debug\GameServer.exe

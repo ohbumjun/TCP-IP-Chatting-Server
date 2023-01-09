@@ -17,9 +17,15 @@ void ServerPacketHandler::HandlePacket(BYTE* buffer, int32 len)
 	}
 }
 
+SendBufferRef ServerPacketHandler::MakeSendBuffer(Protocol::S_TEST& pkt)
+{
+	return _MakeSendBuffer(pkt, S_TEST);
+}
+
+
 /*
 (기본 버전 2 : 직렬화 사용)
-SendBufferRef ServerPacketHandler::Make_S_TEST(uint64 id, 
+SendBufferRef ServerPacketHandler::Make_S_TEST(uint64 id,
 	uint32 hp, uint16 attack, vector<BuffData> buffs, wstring name)
 {
 	SendBufferRef sendBuffer = GSendBufferManager->Open(4096);

@@ -129,7 +129,7 @@ void DeadLockProfiler::DFS(int32 here)
 
 			int32 now = here;
 
-			while(true)
+			while (true)
 			{
 				printf("%s->%s\n", _idToName[_parent[now]], _idToName[now]);
 

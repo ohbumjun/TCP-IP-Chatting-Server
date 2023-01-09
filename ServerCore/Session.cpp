@@ -7,10 +7,8 @@
 	Session
 ---------------*/
 
-Session::Session() : 
-	_recvBuffer(BUFFER_SIZE)
+Session::Session() : _recvBuffer(BUFFER_SIZE)
 {
-	// tcp 소켓 생성
 	_socket = SocketUtils::CreateSocket();
 }
 
@@ -39,6 +37,8 @@ void Session::Send(BYTE* buffer, int32 len)
 }
 */
 
+// Send => 같은 세션에 대해 한번에 하나씩 보내게 할 것이다 (멀티쓰레드 환경 고려)
+// -> 이 안에서 RegisterSend 함수도 호출된다. 즉, RegisterSend 함수도 한번에 하나씩
 void Session::Send(SendBufferRef sendBuffer)
 {
 	// 생각할 문제
@@ -63,29 +63,26 @@ void Session::Send(SendBufferRef sendBuffer)
 	if (IsConnected() == false)
 		return;
 
-	bool registered = false;
+	bool registerSend = false;
 
-	// Register 가 안걸린 상태에서 걸어준다.
+	// 현재 RegisterSend가 걸리지 않은 상태라면, 걸어준다
 	{
 		// RegisterSend 에서 호출되는 WSASend 함수의 경우 멀티쓰레드로부터 안전하지 않다
-	// 따라서 WRITE_LOCK 을 호출해주어야 한다.
+		// 따라서 WRITE_LOCK 을 호출해주어야 한다.
 		WRITE_LOCK;
 
 		// sendQueue 에 전송하고자 하는 데이터를 밀어넣어준다.
+		// 복사X => 단순히 shared_ptr 을 넘겨주는 형태가 될 것이다.
 		_sendQueue.push(sendBuffer);
 
 		// 이전의 값이 false 였다면
 		if (_sendRegistered.exchange(true) == false)
-		{
-			registered = true;
-		}
+			registerSend = true;
 	}
-
-	if (registered)
-	{
-		// RegisterSend() 에서는 _sendQueue 에 있는 데이터를 꺼내다 보낼 것이다.
+	
+	// RegisterSend() 에서는 _sendQueue 에 있는 데이터를 꺼내다 보낼 것이다.
+	if (registerSend)
 		RegisterSend();
-	}
 }
 
 // 서버 끼리 연결하는 경우가 있을 수 있다.
@@ -102,17 +99,15 @@ void Session::Disconnect(const WCHAR* cause)
 	if (_connected.exchange(false) == false)
 		return;
 
-	// TEMP
 	wcout << "Disconnect : " << cause << endl;
 
 	/*
-	아래 함수 : ProcessDisconnect 로 이동 => 왜 ? GameSessionManager::BroadCast 참고  
+	아래 함수 : ProcessDisconnect 로 이동 => 왜 ? GameSessionManager::BroadCast 참고
 	> OnDisconnected(); // 컨텐츠 코드에서 오버로딩
 
 	// ref Cnt 감소시키기
 	> GetService()->ReleaseSession(GetSessionRef());
 	*/
-
 	RegisterDisconnect();
 }
 
@@ -127,7 +122,6 @@ HANDLE Session::GetHandle()
 // iocpObject->Dispatch 호출 => Session->Dispatch 호출
 void Session::Dispatch(IocpEvent* iocpEvent, int32 numOfBytes)
 {
-	// TODO
 	switch (iocpEvent->eventType)
 	{
 	case EventType::Connect:
@@ -147,27 +141,6 @@ void Session::Dispatch(IocpEvent* iocpEvent, int32 numOfBytes)
 	}
 }
 
-bool Session::RegisterDisconnect()
-{
-	_disconnectEvent.Init();
-	_disconnectEvent.owner = shared_from_this();
-
-	// 비동기로 Disconnect 요청
-	if (false == SocketUtils::DisconnectEx(_socket, &_disconnectEvent, TF_REUSE_SOCKET, 0))
-	{
-		// TF_REUSE_SOCKET : 소켓이 다시 재사용될 수 있게 준비해준다.
-		int32 errorCode = ::WSAGetLastError();
-
-		if (errorCode != WSA_IO_PENDING)
-		{
-			_disconnectEvent.owner = nullptr;
-			return false;
-		}
-	}
-
-	return true;
-}
-
 bool Session::RegisterConnect()
 {
 	if (IsConnected())
@@ -175,7 +148,7 @@ bool Session::RegisterConnect()
 
 	// 반드시 Client 여야 한다.
 	// Server 의 경우, 상대방이 나한테 붙는 경우이므로 RegisterConnect 는 호출 X
-	if (GetService()->GetSeviceType() != ServiceType::Client)
+	if (GetService()->GetServiceType() != ServiceType::Client)
 		return false;
 
 	// 주소 재사용
@@ -184,23 +157,41 @@ bool Session::RegisterConnect()
 
 	// 소켓에 주소, port 세팅 => 0 을 넘겨주면 여유있는거 아무거나 알아서 세팅해줌
 	// ConnectEx 를 호출해주기 위해서는 반드시 필요하다.
-	if (SocketUtils::BindAnyAddress(_socket, 0) == false)
+	if (SocketUtils::BindAnyAddress(_socket, 0/*남는거*/) == false)
 		return false;
 
 	_connectEvent.Init();
-	_connectEvent.owner = shared_from_this(); 
+	_connectEvent.owner = shared_from_this(); // ADD_REF
 
 	// 어디로 연결할 것인가
 	DWORD numOfBytes = 0;
 	SOCKADDR_IN sockAddr = GetService()->GetNetAddress().GetSockAddr();
-	
-	if (false == SocketUtils::ConnectEx(_socket,
-		reinterpret_cast<SOCKADDR*>(&sockAddr), sizeof(sockAddr), nullptr, 0, &numOfBytes, &_connectEvent))
+	if (false == SocketUtils::ConnectEx(_socket, reinterpret_cast<SOCKADDR*>(&sockAddr), sizeof(sockAddr), nullptr, 0, &numOfBytes, &_connectEvent))
 	{
 		int32 errorCode = ::WSAGetLastError();
 		if (errorCode != WSA_IO_PENDING)
 		{
 			_connectEvent.owner = nullptr; // RELEASE_REF
+			return false;
+		}
+	}
+
+	return true;
+}
+
+bool Session::RegisterDisconnect()
+{
+	_disconnectEvent.Init();
+	_disconnectEvent.owner = shared_from_this(); // ADD_REF
+
+	// 비동기로 Disconnect 요청
+	if (false == SocketUtils::DisconnectEx(_socket, &_disconnectEvent, TF_REUSE_SOCKET, 0))
+	{
+		// TF_REUSE_SOCKET : 소켓이 다시 재사용될 수 있게 준비해준다.
+		int32 errorCode = ::WSAGetLastError();
+		if (errorCode != WSA_IO_PENDING)
+		{
+			_disconnectEvent.owner = nullptr; // RELEASE_REF
 			return false;
 		}
 	}
@@ -215,27 +206,26 @@ void Session::RegisterRecv()
 	if (IsConnected() == false)
 		return;
 
-	// RecvEvent 를 만들어준다.
 	_recvEvent.Init();
+
 	// - ref cnt 를 1 로 해준다.
-	_recvEvent.owner = shared_from_this();
+	_recvEvent.owner = shared_from_this(); // ADD_REF
 
 	// 패킷이 완전체로 왔는지 안왔는지 세팅해야 한다.
 	// - TCP 특성상 데이터 경계가 없기 때문이다.
 	// - 이를 RecvBuffer 를 통해 구현
 	WSABUF wsaBuf;
-	BYTE* WritePos = _recvBuffer.WritePos();
-
 	wsaBuf.buf = reinterpret_cast<char*>(_recvBuffer.WritePos());
 
 	// wsaBuf.len : 실제 버퍼 자체가 최대로 받을 수 있는 크기
 	wsaBuf.len = _recvBuffer.FreeSize();
 
 	DWORD numOfBytes = 0;
-	DWORD flags      = 0;
+	DWORD flags = 0;
 
 	// 아래의 비동기 Recv 가 완료되게 되면, 결과적으로 ProcessRecv() 함수 호출
-	if (SOCKET_ERROR == ::WSARecv(_socket, &wsaBuf, 1, OUT & numOfBytes, OUT & flags, &_recvEvent, nullptr))
+	if (SOCKET_ERROR == ::WSARecv(_socket, &wsaBuf, 1, OUT &numOfBytes, OUT &flags, 
+		&_recvEvent, nullptr))
 	{
 		int32 errorCode = ::WSAGetLastError();
 		if (errorCode != WSA_IO_PENDING)
@@ -254,46 +244,42 @@ void Session::RegisterSend()
 	if (IsConnected() == false)
 		return;
 
-	// IOCP 에 WSASend 함수를 호출할 준비를 해준다.
 	_sendEvent.Init();
-	_sendEvent.owner = shared_from_this();
+	_sendEvent.owner = shared_from_this(); // ADD_REF
 
-	// Send() 함수에서 _sendQueud 에 넘겨준 데이터를 꺼내서 사용할 것이다.
+
+	// Send() 함수에서 _sendQueue 에 넘겨준 데이터를 꺼내서 사용할 것이다.
 	// 보낼 데이터를 sendEvent 에 등록
 	// 즉, sendEvent 클래스에 있는 sendBuffer 에 옮겨준다는 것이다.
 	// 왜 ? WSASend 를 하는 순간 해당 sendBuffer 가 없어지지 않게
 	// Ref Cnt 를 유지시켜줘야 한다.
 	// 이 Queue 에 빼는 순간 Ref Cnt 가 1 감소하여 사라질 수 있기 때문에
 	// 한번 더 여기서 보관해주는 것이다.
+	// 보낼 데이터를 sendEvent에 등록
 	{
 		WRITE_LOCK;
 
 		int32 writeSize = 0;
-
 		while (_sendQueue.empty() == false)
 		{
 			SendBufferRef sendBuffer = _sendQueue.front();
 
 			writeSize += sendBuffer->WriteSize();
-
-			// TODO 
-			// SendBuffer 도 초기에 정한 최대 크기가 있다.
-			// 따라서 너무 많은 데이터를 한번에 보내지 않게 할 것이다.
+			// TODO : 예외 체크
 
 			_sendQueue.pop();
 			_sendEvent.sendBuffers.push_back(sendBuffer);
 		}
 	}
 
-	// Scatter Gather (흩어져 있는 데이터들을 모아서 한방에 보낸다.)
+	// Scatter-Gather (흩어져 있는 데이터들을 모아서 한 방에 보낸다)
 	// ex) 10개가 쌓여있었다면, 10개를 한번에 보내기
 	// 즉, 흩어져 있는 데이터를 한번에 보내기 
 	// Send 에서 _sendRegistered 가 true 라면, 즉, 이전에 보낸 데이터에 대한
 	//      통지가 완료되지 않은 경우에믄, _sendQueue 에 데이터가 쌓이게 된다
 	//      그 다음에 전송할 때는 _sendQueue 에 있던 데이터를 한번에 보낸다.
-	vector<WSABUF> wsaBufs;
+	Vector<WSABUF> wsaBufs;
 	wsaBufs.reserve(_sendEvent.sendBuffers.size());
-
 	for (SendBufferRef sendBuffer : _sendEvent.sendBuffers)
 	{
 		WSABUF wsaBuf;
@@ -303,20 +289,14 @@ void Session::RegisterSend()
 	}
 
 	DWORD numOfBytes = 0;
-
-	if (SOCKET_ERROR == ::WSASend(_socket, wsaBufs.data(), static_cast<DWORD>(wsaBufs.size()),
-		OUT & numOfBytes, 0, &_sendEvent, nullptr))
+	if (SOCKET_ERROR == ::WSASend(_socket, wsaBufs.data(), static_cast<DWORD>(wsaBufs.size()), OUT &numOfBytes, 0, &_sendEvent, nullptr))
 	{
 		int32 errorCode = ::WSAGetLastError();
-
 		if (errorCode != WSA_IO_PENDING)
 		{
 			HandleError(errorCode);
-
-			_sendEvent.owner = nullptr; // Release Ref
-
-			_sendEvent.sendBuffers.clear(); // Release Ref
-
+			_sendEvent.owner = nullptr; // RELEASE_REF
+			_sendEvent.sendBuffers.clear(); // RELEASE_REF
 			_sendRegistered.store(false);
 		}
 	}
@@ -326,13 +306,12 @@ void Session::ProcessConnect()
 {
 	_connectEvent.owner = nullptr; // RELEASE_REF
 
-	// 멀티쓰레드 환경
 	_connected.store(true);
 
-	// 자신이 가지고 있는 서비스에 자기 자신 (세션) 등록
+	// 세션 등록
 	GetService()->AddSession(GetSessionRef());
 
-	// 컨텐츠 코드에서 오버로딩
+	// 컨텐츠 코드에서 재정의
 	OnConnected();
 
 	// 수신 등록 => 비동기 함수 WSARecv() 호출 -> IO 가 완료되면
@@ -343,17 +322,15 @@ void Session::ProcessConnect()
 
 void Session::ProcessDisconnect()
 {
-	_disconnectEvent.owner = nullptr;
+	_disconnectEvent.owner = nullptr; // RELEASE_REF
 
-	OnDisconnected(); // 컨텐츠 코드에서 오버로딩
-
-	// ref Cnt 감소시키기
+	OnDisconnected(); // 컨텐츠 코드에서 재정의
 	GetService()->ReleaseSession(GetSessionRef());
 }
 
 void Session::ProcessRecv(int32 numOfBytes)
 {
-	_recvEvent.owner = nullptr; 
+	_recvEvent.owner = nullptr; // RELEASE_REF
 
 	// 수신된 데이터가 없다는 의미는, 연결이 끊겼다는 의미이다.
 	if (numOfBytes == 0)
@@ -377,15 +354,14 @@ void Session::ProcessRecv(int32 numOfBytes)
 	// 물론 모든 데이터를 처리하게 될 수도 있고
 	// 데이터 경계에 따라 일부 데이터만 처리하게 될 수도 있다.
 	// processLen : dataSize 중에서 실제 처리한 데이터 크기 
-	int32 processLen = OnRecv(_recvBuffer.ReadPos(), dataSize);
-
-	// 받아들인 데이터 중에서, 실제 처리한 데이터 크기만큼 OnRead 실행
+	int32 processLen = OnRecv(_recvBuffer.ReadPos(), dataSize); // 컨텐츠 코드에서 재정의
+	
 	if (processLen < 0 || dataSize < processLen || _recvBuffer.OnRead(processLen) == false)
 	{
-		Disconnect(L"On Read Overflow");
+		Disconnect(L"OnRead Overflow");
 		return;
 	}
-
+	
 	// 자 여기까지
 	// 1) OnRecv 를 통해 WritePos 를 증가
 	// 2) OnRead 를 통해 ReadPos 증가
@@ -396,17 +372,14 @@ void Session::ProcessRecv(int32 numOfBytes)
 	RegisterRecv();
 }
 
+
 // 해당 함수는 여러 개의 쓰레드에서 순서가 보장되지 않은 채 실행될 수 있다.
 // 왜냐하면 iocpCore->Dispatch 함수를 통해 아래 함수가 최종 실행되는데
 // 이때 A,B,C,D 순서로 send 해도 , 이 순서대로 실행되지는 않는 것이다(send 완료 순서 보장 X)
 void Session::ProcessSend(int32 numOfBytes)
 {
-	// 전송 완료 
-	_sendEvent.owner = nullptr; // Release Ref
-	_sendEvent.sendBuffers.clear(); // Release Ref
-
-	// 기존에 늘려놨던 ref 를 1 감소 (볼일 다 봤다)
 	_sendEvent.owner = nullptr; // RELEASE_REF
+	_sendEvent.sendBuffers.clear(); // RELEASE_REF
 
 	if (numOfBytes == 0)
 	{
@@ -446,8 +419,6 @@ void Session::HandleError(int32 errorCode)
 	}
 }
 
-
-
 /*-----------------
 	PacketSession
 ------------------*/
@@ -474,13 +445,12 @@ int32 PacketSession::OnRecv(BYTE* buffer, int32 len)
 	{
 		int32 dataSize = len - processLen;
 
-		// 최소한 헤더는 파싱할 수 있어야 한다 (4byte 는 보내야 한다는 것이지)
+		// 최소한 헤더는 파싱할 수 있어야 한다
 		if (dataSize < sizeof(PacketHeader))
 			break;
 
-		// 초기 4byte 정보를 새로운 PacketHeader 객체에 복사해주기 
 		PacketHeader header = *(reinterpret_cast<PacketHeader*>(&buffer[processLen]));
-		
+
 		// 헤더에 기록된 패킷 크기를 파싱할 수 있어야 한다
 		// dataSize    : 지금까지 넘겨받은 데이터 크기 
 		// header.size : size, id, data 크기 전체 크기 

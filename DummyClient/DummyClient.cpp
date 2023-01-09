@@ -1,78 +1,84 @@
-#include "pch.h"
-#include <iostream>
+ï»¿#include "pch.h"
 #include "ThreadManager.h"
 #include "Service.h"
 #include "Session.h"
 #include "BufferReader.h"
 #include "ClientPacketHandler.h"
 
-// Service    : ¾î¶² ¿ªÇÒÀ» ÇÒ °ÍÀÎ°¡ ex) ¼­¹ö ? Å¬¶óÀÌ¾ğÆ® ?
-//            - µ¿½Ã Á¢¼ÓÀÚ ¼ö¿¡ ¸Â°Ô Session »ı¼º ¹× °ü¸® ±â´É
-// Session    : ½ÇÁúÀûÀÎ ±â´ÉÀ» ´ã´çÇÏ´Â °÷
-//            - ¼ÒÄÏ ¼ÒÀ¯, Recv, Send
-// Listener   : ¼­¹ö ¼ÒÄÏ => ÃÊ±âÈ­ ¹× AcceptEx ÇÔ¼ö µî È£Ãâ
-// IocpObject : CreateIOCompletionPort, WSARecv µîÀ» ÅëÇØ key °ªÀ¸·Î ³Ñ°ÜÁÖ±â À§ÇÑ Object 
-//            - Listener, Service °¡ »ó¼Ó¹Ş¾Æ¼­ Ã³¸®ÇÑ´Ù.
-// IocpEvent  : Accept, Recv, Send µî ´Ù¾çÇÑ ÀÌº¥Æ®¸¦ Å¬·¡½ºÈ­ ½ÃÅ² °Í -> OVERLAPPED ¸¦ »ó¼Ó
+
+// Service    : ì–´ë–¤ ì—­í• ì„ í•  ê²ƒì¸ê°€ ex) ì„œë²„ ? í´ë¼ì´ì–¸íŠ¸ ?
+//            - ë™ì‹œ ì ‘ì†ì ìˆ˜ì— ë§ê²Œ Session ìƒì„± ë° ê´€ë¦¬ ê¸°ëŠ¥
+// Session    : ì‹¤ì§ˆì ì¸ ê¸°ëŠ¥ì„ ë‹´ë‹¹í•˜ëŠ” ê³³
+//            - ì†Œì¼“ ì†Œìœ , Recv, Send
+// Listener   : ì„œë²„ ì†Œì¼“ => ì´ˆê¸°í™” ë° AcceptEx í•¨ìˆ˜ ë“± í˜¸ì¶œ
+// IocpObject : CreateIOCompletionPort, WSARecv ë“±ì„ í†µí•´ key ê°’ìœ¼ë¡œ ë„˜ê²¨ì£¼ê¸° ìœ„í•œ Object 
+//            - Listener, Service ê°€ ìƒì†ë°›ì•„ì„œ ì²˜ë¦¬í•œë‹¤.
+// IocpEvent  : Accept, Recv, Send ë“± ë‹¤ì–‘í•œ ì´ë²¤íŠ¸ë¥¼ í´ë˜ìŠ¤í™” ì‹œí‚¨ ê²ƒ -> OVERLAPPED ë¥¼ ìƒì†
+
 
 char sendData[] = "Hello World";
 
-// Server ÂÊÀ» ´ëÇ¥ÇÏ´Â ¼¼¼Ç
 class ServerSession : public PacketSession
 {
 public:
-	// Client : -> Connect È£Ãâ -> ProcessConnect -> WSARecv È£Ãâ -> Á÷ÈÄ ¹Ù·Î SEnd
-	// -> Server ÃøÀ¸·Î ¸ÕÀú º¸³»Áø´Ù. -> OnSend È£Ãâ -> ¿¡ÄÚ¼­¹ö°¡ ´Ù½Ã µ¹·ÁÁÜ
-	// -> Àú À§¿¡¼­ WSARecv È£ÃâÇØµÎ¾úÀ¸¹Ç·Î ½ÇÁúÀûÀÎ Recv °¡ È£ÃâµÈ´Ù.
+	~ServerSession()
+	{
+		cout << "~ServerSession" << endl;
+	}
+
+	// Client : -> Connect í˜¸ì¶œ -> ProcessConnect -> WSARecv í˜¸ì¶œ -> ì§í›„ ë°”ë¡œ SEnd
+	// -> Server ì¸¡ìœ¼ë¡œ ë¨¼ì € ë³´ë‚´ì§„ë‹¤. -> OnSend í˜¸ì¶œ -> ì—ì½”ì„œë²„ê°€ ë‹¤ì‹œ ëŒë ¤ì¤Œ
+	// -> ì € ìœ„ì—ì„œ WSARecv í˜¸ì¶œí•´ë‘ì—ˆìœ¼ë¯€ë¡œ ì‹¤ì§ˆì ì¸ Recv ê°€ í˜¸ì¶œëœë‹¤.
 	virtual void OnConnected() override
 	{
-		// cout << "Connected To Server" << endl;
+		//cout << "Connected To Server" << endl;
 
-		// SendBuffer ¸¦ Ref ·Î °ü¸®ÇÏ´Â ÀÌÀ¯ ?
-		// - Send ÇÔ¼ö È£Ãâ => RegisterSend È£Ãâ => WSASend È£Ãâ
-		// - ÀÌ °úÁ¤µ¿¾È¿¡ ½ÇÁúÀûÀÎ SendBuffer ¸Ş¸ğ¸®°¡ À¯ÁöµÇ¾î¾ß ÇÑ´Ù.
+		/*ìì²´ íŒ¨í‚·ì„ ì‚¬ìš©í•  ê²½ìš° */
+		/*
+		// SendBuffer ë¥¼ Ref ë¡œ ê´€ë¦¬í•˜ëŠ” ì´ìœ  ?
+		// - Send í•¨ìˆ˜ í˜¸ì¶œ => RegisterSend í˜¸ì¶œ => WSASend í˜¸ì¶œ
+		// - ì´ ê³¼ì •ë™ì•ˆì— ì‹¤ì§ˆì ì¸ SendBuffer ë©”ëª¨ë¦¬ê°€ ìœ ì§€ë˜ì–´ì•¼ í•œë‹¤.
 		SendBufferRef sendBuffer = GSendBufferManager->Open(4096);
 		::memcpy(sendBuffer->Buffer(), sendData, sizeof(sendData));
 
-		// Echo Server ±â´É
+		// Echo Server ê¸°ëŠ¥
 		// sendBuffer->CopyData(buffer, len);
 		sendBuffer->Close(sizeof(sendData));
+		*/
+	}
 
-		// Send(sendBuffer);
+	virtual void OnRecvPacket(BYTE* buffer, int32 len) override
+	{
+		ClientPacketHandler::HandlePacket(buffer, len);
+	}
+
+	virtual void OnSend(int32 len) override
+	{
+		//cout << "OnSend Len = " << len << endl;
 	}
 
 	virtual void OnDisconnected() override
 	{
-		cout << "Client Disconnected" << endl;
-	}
-
-	virtual void OnRecvPacket(BYTE* buffer, int32 len)
-	{
-		ClientPacketHandler::HandlePacket(buffer, len);
-	};
-
-	virtual void		OnSend(int32 len)
-	{
-		// cout << "OnSend Len Dummy : " << len << endl;
+		//cout << "Disconnected" << endl;
 	}
 };
 
 int main()
 {
-	// server ¶ß±â Àü¿¡ Á¢¼ÓÇÏÁö ¾Êµµ·Ï ´ë±â
-	this_thread::sleep_for(2s);
+	// server ëœ¨ê¸° ì „ì— ì ‘ì†í•˜ì§€ ì•Šë„ë¡ ëŒ€ê¸°
+	this_thread::sleep_for(1s);
 
-	// ¸¶Áö¸· ÀÎÀÚ ³Ñ°ÜÁØ °³¼ö¸¸Å­ÀÇ Session »ı¼º => Connect ½Ãµµ
-	ClientServiceRef service = std::make_shared<ClientService>(
+	// ë§ˆì§€ë§‰ ì¸ì ë„˜ê²¨ì¤€ ê°œìˆ˜ë§Œí¼ì˜ Session ìƒì„± => Connect ì‹œë„
+	ClientServiceRef service = MakeShared<ClientService>(
 		NetAddress(L"127.0.0.1", 7777),
-		std::make_shared<IocpCore>(),
-		[]()->SessionRef {return std::make_shared<ServerSession>(); },
-		// 100 ? => Test Á¢¼ÓÀÚ 100¸í ¼³Á¤ÇÏ´Â °Í
-		1);
-	
+		MakeShared<IocpCore>(),
+		MakeShared<ServerSession>, // TODO : SessionManager ë“±
+		// 100 ? => Test ì ‘ì†ì 100ëª… ì„¤ì •í•˜ëŠ” ê²ƒ
+		150);
+
 	ASSERT_CRASH(service->Start());
 
-	for (int32 i = 0; i < 2; ++i)
+	for (int32 i = 0; i < 2; i++)
 	{
 		GThreadManager->Launch([=]()
 			{
@@ -84,6 +90,4 @@ int main()
 	}
 
 	GThreadManager->Join();
-
-	return 0;
 }

@@ -1,12 +1,15 @@
 #include "pch.h"
 #include "CoreGlobal.h"
 #include "ThreadManager.h"
+#include "Memory.h"
 #include "DeadLockProfiler.h"
 #include "SocketUtils.h"
 #include "SendBuffer.h"
 
-SendBufferManager*	GSendBufferManager = nullptr;
 ThreadManager*		GThreadManager = nullptr;
+Memory*				GMemory = nullptr;
+SendBufferManager*	GSendBufferManager = nullptr;
+
 DeadLockProfiler*	GDeadLockProfiler = nullptr;
 
 // 차후 여러개의 Manager Class 가 만들어질 수 있다.
@@ -15,23 +18,21 @@ DeadLockProfiler*	GDeadLockProfiler = nullptr;
 class CoreGlobal
 {
 public:
-	CoreGlobal();
-	~CoreGlobal();
-} GCoreGlobal; // 선언과 동시에 인스턴스 1개 생성
+	CoreGlobal()
+	{
+		GThreadManager = new ThreadManager();
+		GMemory = new Memory();
+		GSendBufferManager = new SendBufferManager();
+		GDeadLockProfiler = new DeadLockProfiler();
+		SocketUtils::Init();
+	}
 
-CoreGlobal::CoreGlobal()
-{
-	GThreadManager = new ThreadManager();
-	GDeadLockProfiler = new DeadLockProfiler();
-	GSendBufferManager = new SendBufferManager();
-	SocketUtils::Init();
-}
-
-CoreGlobal::~CoreGlobal()
-{
-	delete GThreadManager;
-	delete GDeadLockProfiler;
-	delete GSendBufferManager;
-	SocketUtils::Clear();
-
-}
+	~CoreGlobal()
+	{
+		delete GThreadManager;
+		delete GMemory;
+		delete GSendBufferManager;
+		delete GDeadLockProfiler;
+		SocketUtils::Clear();
+	}
+} GCoreGlobal;

@@ -2,10 +2,13 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <Filter Include="Main">
-      <UniqueIdentifier>{a6551972-ecd7-4c11-afc1-cedde0260ba3}</UniqueIdentifier>
+      <UniqueIdentifier>{7ce01a19-38b3-498c-9275-d574830917cc}</UniqueIdentifier>
     </Filter>
     <Filter Include="Utils">
-      <UniqueIdentifier>{f5470d8d-3bbb-4541-860e-2643406fb39c}</UniqueIdentifier>
+      <UniqueIdentifier>{a5cbd172-9aef-4030-945e-7110f2ea7d51}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Protocol">
+      <UniqueIdentifier>{15ffd3da-e358-4e2b-8754-e2e4a6f52136}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -18,6 +21,9 @@
     <ClCompile Include="ClientPacketHandler.cpp">
       <Filter>Main</Filter>
     </ClCompile>
+    <ClCompile Include="Protocol.pb.cc">
+      <Filter>Protocol</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -26,10 +32,8 @@
     <ClInclude Include="ClientPacketHandler.h">
       <Filter>Main</Filter>
     </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <Xml Include="PDL.xml">
-      <Filter>Main</Filter>
-    </Xml>
+    <ClInclude Include="Protocol.pb.h">
+      <Filter>Protocol</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

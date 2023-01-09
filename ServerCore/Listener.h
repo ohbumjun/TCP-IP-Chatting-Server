@@ -1,4 +1,4 @@
-ï»¿#pragma once
+#pragma once
 #include "IocpCore.h"
 #include "NetAddress.h"
 
@@ -9,16 +9,16 @@ class ServerService;
 	Listener
 ---------------*/
 
-// ë¬¸ì§€ê¸° ì—­í• 
-// - Listener ë¥¼ ë§Œë“¤ì–´ì„œ iocpCore ì— ë“±ë¡í•˜ê³ , ê´€ì‹¬ ëŒ€ìƒìœ¼ë¡œ ì‚´í”¼ë¼ê³  í•  ê²ƒì´ë‹¤.
-// - CreateIoCompletionPort ë“±ì„ í†µí•´ ì†Œì¼“ì„ CP ì— ë“±ë¡í•  ë•Œ, ë„˜ê²¨ì£¼ëŠ” Key ê°’ìœ¼ë¡œë„ ì‚¬ìš©ë  ìˆ˜ ìˆë‹¤.
-//   ì§„í–‰ ìˆœì„œ
-// 1) StartAccept => ì„œë²„ ì†Œì¼“ ì„¸íŒ…
-// 2) RegisterAccept => ì„¸ì…˜ ìƒì„± ë° í´ë¼ì´ì–¸íŠ¸ ì—°ê²° ìš”ì²­ ë°›ì•„ë“¤ì´ê¸°
-// 3) ì‹¤ì œ ì—°ê²° ìš”ì²­ì´ ìˆì„ ë•Œë§ˆë‹¤ iocpCore::Dispatch í•¨ìˆ˜ í˜¸ì¶œ 
-//    => iocpObject (= Listner)->Dispatch í•¨ìˆ˜ í˜¸ì¶œ
-// 4) ProcessAccept() í•¨ìˆ˜ í˜¸ì¶œ => Client ì •ë³´ ì„¸íŒ… ë°
-//    - session ì˜ í•¨ìˆ˜ë“¤ì„ í˜¸ì¶œí•´ì¤Œìœ¼ë¡œì¨ ë³¸ê²©ì ì¸ ì‘ì—… ì‹œì‘ 
+// ¹®Áö±â ¿ªÇÒ
+// - Listener ¸¦ ¸¸µé¾î¼­ iocpCore ¿¡ µî·ÏÇÏ°í, °ü½É ´ë»óÀ¸·Î »ìÇÇ¶ó°í ÇÒ °ÍÀÌ´Ù.
+// - CreateIoCompletionPort µîÀ» ÅëÇØ ¼ÒÄÏÀ» CP ¿¡ µî·ÏÇÒ ¶§, ³Ñ°ÜÁÖ´Â Key °ªÀ¸·Îµµ »ç¿ëµÉ ¼ö ÀÖ´Ù.
+//   ÁøÇà ¼ø¼­
+// 1) StartAccept => ¼­¹ö ¼ÒÄÏ ¼¼ÆÃ
+// 2) RegisterAccept => ¼¼¼Ç »ı¼º ¹× Å¬¶óÀÌ¾ğÆ® ¿¬°á ¿äÃ» ¹Ş¾ÆµéÀÌ±â
+// 3) ½ÇÁ¦ ¿¬°á ¿äÃ»ÀÌ ÀÖÀ» ¶§¸¶´Ù iocpCore::Dispatch ÇÔ¼ö È£Ãâ 
+//    => iocpObject (= Listner)->Dispatch ÇÔ¼ö È£Ãâ
+// 4) ProcessAccept() ÇÔ¼ö È£Ãâ => Client Á¤º¸ ¼¼ÆÃ ¹×
+//    - session ÀÇ ÇÔ¼öµéÀ» È£ÃâÇØÁÜÀ¸·Î½á º»°İÀûÀÎ ÀÛ¾÷ ½ÃÀÛ 
 //      -- ProcessConnect()
 class Listener : public IocpObject
 {
@@ -27,26 +27,23 @@ public:
 	~Listener();
 
 public:
-	/*ì™¸ë¶€ì—ì„œ ì‚¬ìš©*/
+	/* ¿ÜºÎ¿¡¼­ »ç¿ë */
 	bool StartAccept(ServerServiceRef service);
 	void CloseSocket();
 
 public:
+	/* ÀÎÅÍÆäÀÌ½º ±¸Çö */
 	virtual HANDLE GetHandle() override;
 	virtual void Dispatch(class IocpEvent* iocpEvent, int32 numOfBytes = 0) override;
 
 private:
+	/* ¼ö½Å °ü·Ã */
 	void RegisterAccept(AcceptEvent* acceptEvent);
 	void ProcessAccept(AcceptEvent* acceptEvent);
 
 protected:
-	// í•´ë‹¹ ë³€ìˆ˜ê°€ listener ì†Œì¼“ì´ ë  ê²ƒì´ë‹¤.
-	// - session ë‚´ì— socket ì„ ë“¤ê³  ìˆê²Œ ëœë‹¤.
 	SOCKET _socket = INVALID_SOCKET;
-	vector<AcceptEvent*> _acceptEvents;
-
-	// shared_ptr ì„ ë§Œë“¤ë˜, ìˆœí™˜ì€ ëŠì–´ì¤„ ê²ƒì´ë‹¤.
-	// StartAccept ì°¸ê³ 
-	ServerServiceRef _ServerService;
+	Vector<AcceptEvent*> _acceptEvents;
+	ServerServiceRef _service;
 };
 

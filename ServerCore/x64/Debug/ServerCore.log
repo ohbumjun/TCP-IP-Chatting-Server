@@ -1,2 +1,4 @@
-﻿  BufferWriter.cpp
-  ServerCore.vcxproj -> D:\DirectXPersonalProjectFolder\서버프로젝트\GameServer\Libraries\Debug\ServerCore.lib
+﻿  BufferReader.cpp
+  BufferWriter.cpp
+  코드를 생성하고 있습니다...
+  ServerCore.vcxproj -> D:\DirectXPersonalProjectFolder\서버프로젝트\ProtoBufSrcCode\Libraries\Debug\ServerCore.lib

@@ -1,8 +1,8 @@
-ï»¿#pragma once
+#pragma once
 #include "IocpCore.h"
 #include "IocpEvent.h"
-#include "RecvBuffer.h"
 #include "NetAddress.h"
+#include "RecvBuffer.h"
 
 class Service;
 
@@ -10,8 +10,8 @@ class Service;
 	Session
 ---------------*/
 
-// iocpCore ì— ë“±ë¡í•´ì¤„ ë…€ì„ì´ë‹¤.
-// ì¦‰, CreateIoCompletionPort ë“±ì„ í†µí•´ ì†Œì¼“ì„ CP ì— ë“±ë¡í•  ë•Œ, ë„˜ê²¨ì£¼ëŠ” Key ê°’ìœ¼ë¡œë„ ì‚¬ìš©ë  ìˆ˜ ìˆë‹¤.
+// iocpCore ¿¡ µî·ÏÇØÁÙ ³à¼®ÀÌ´Ù.
+// Áï, CreateIoCompletionPort µîÀ» ÅëÇØ ¼ÒÄÏÀ» CP ¿¡ µî·ÏÇÒ ¶§, ³Ñ°ÜÁÖ´Â Key °ªÀ¸·Îµµ »ç¿ëµÉ ¼ö ÀÖ´Ù.
 class Session : public IocpObject
 {
 	friend class Listener;
@@ -20,125 +20,115 @@ class Session : public IocpObject
 
 	enum
 	{
-		BUFFER_SIZE = 0x10000 // 64KB
+		BUFFER_SIZE = 0x10000, // 64KB
 	};
+
 public:
 	Session();
 	virtual ~Session();
 
 public:
-	// ì‹¤ì œ ë°ì´í„°ë¥¼ ë³´ë‚´ëŠ” í•¨ìˆ˜ 
-	// - buffer: ë°ì´í„°
-	// void				Send(BYTE* buffer, int32 len);
+						/* ¿ÜºÎ¿¡¼­ »ç¿ë */
 	void				Send(SendBufferRef sendBuffer);
-	bool                Connect();
-	// í•´í‚¹ì˜ì‹¬ ë° ìƒëŒ€ë°© ì—°ê²°ì´ ëŠê¸´ ê²½ìš°, ì‚¬ìœ ë¥¼ ì¸ìë¡œ ë°›ì•„ì„œ ì—°ê²° ëŠê¸°
+	bool				Connect();
+	// ÇØÅ·ÀÇ½É ¹× »ó´ë¹æ ¿¬°áÀÌ ²÷±ä °æ¿ì, »çÀ¯¸¦ ÀÎÀÚ·Î ¹Ş¾Æ¼­ ¿¬°á ²÷±â
 	void				Disconnect(const WCHAR* cause);
+
 	shared_ptr<Service>	GetService() { return _service.lock(); }
 	void				SetService(shared_ptr<Service> service) { _service = service; }
 
 public:
-	// ì •ë³´ê´€ë ¨ ì„¸íŒ…
-	void		SetNetAddress(NetAddress address) { _netAddress = address; }
-	NetAddress	GetAddress() { return _netAddress; }
-	SOCKET		GetSocket() { return _socket; }
+						/* Á¤º¸ °ü·Ã */
+	void				SetNetAddress(NetAddress address) { _netAddress = address; }
+	NetAddress			GetAddress() { return _netAddress; }
+	SOCKET				GetSocket() { return _socket; }
 	bool				IsConnected() { return _connected; }
 	SessionRef			GetSessionRef() { return static_pointer_cast<Session>(shared_from_this()); }
 
-public:
-	/*ì¸í„°í˜ì´ìŠ¤ êµ¬í˜„*/
+private:
+						/* ÀÎÅÍÆäÀÌ½º ±¸Çö */
 	virtual HANDLE		GetHandle() override;
 	virtual void		Dispatch(class IocpEvent* iocpEvent, int32 numOfBytes = 0) override;
+
 private:
-	/* ì „ì†¡ ê´€ë ¨ */
-	bool				RegisterDisconnect(); // Client Service ì¸¡ì—ì„œ ì‚¬ìš© ?
-	bool				RegisterConnect(); // Client Service ì¸¡ì—ì„œ ì‚¬ìš© ?
+						/* Àü¼Û °ü·Ã */
+	bool				RegisterConnect();
+	bool				RegisterDisconnect();
 	void				RegisterRecv();
 	void				RegisterSend();
 
-	/*Register ê³¼ì •ì´ ëë‚œ ì´í›„ ì²˜ë¦¬í•˜ëŠ” í•¨ìˆ˜ë“¤*/
-	void				ProcessDisconnect();
+						/*Register °úÁ¤ÀÌ ³¡³­ ÀÌÈÄ Ã³¸®ÇÏ´Â ÇÔ¼öµé*/
 	void				ProcessConnect();
-	// Register Event ìƒì„± ë° ë¹„ë™ê¸° Recv ì‹¤í–‰
+	void				ProcessDisconnect();
 	void				ProcessRecv(int32 numOfBytes);
 	void				ProcessSend(int32 numOfBytes);
 
 	void				HandleError(int32 errorCode);
 
 protected:
-	/* ì»¨í…ì¸  ì½”ë“œì—ì„œ ì˜¤ë²„ë¡œë”© */
+						/* ÄÁÅÙÃ÷ ÄÚµå¿¡¼­ ÀçÁ¤ÀÇ */
 	virtual void		OnConnected() { }
 	virtual int32		OnRecv(BYTE* buffer, int32 len) { return len; }
 	virtual void		OnSend(int32 len) { }
 	virtual void		OnDisconnected() { }
 
 private:
-	// Service ì— ëŒ€í•œ ì¡´ì¬ë¥¼ ì•Œì•„ì•¼ì§€ë§Œ
-	// Service ì— ë“±ë¡í•˜ê±°ë‚˜ ëŠê±°ë‚˜ í•˜ëŠ” ê¸°ëŠ¥ì„ êµ¬í˜„í•  ìˆ˜ ìˆë‹¤.
+	// Service ¿¡ ´ëÇÑ Á¸Àç¸¦ ¾Ë¾Æ¾ßÁö¸¸
+	// Service ¿¡ µî·ÏÇÏ°Å³ª ²÷°Å³ª ÇÏ´Â ±â´ÉÀ» ±¸ÇöÇÒ ¼ö ÀÖ´Ù.
 	weak_ptr<Service>	_service;
-
-	// í´ë¼ì´ì–¸íŠ¸ ìš”ì²­ì„ ë°›ì•„ë“¤ì´ëŠ” ê³¼ì •ì—ì„œ ë§Œë“¤ì–´ì§€ëŠ” í´ë¼ì´ì–¸íŠ¸ ì†Œì¼“ ?
-	SOCKET			_socket = INVALID_SOCKET;
-	NetAddress		_netAddress = {};
-	Atomic<bool>	_connected = false;
+	SOCKET				_socket = INVALID_SOCKET;
+	NetAddress			_netAddress = {};
+	Atomic<bool>		_connected = false;
 
 private:
-	// Session ì€ ë©€í‹° ì“°ë ˆë“œ í˜•íƒœë¡œ ëŒì•„ê°€ê¸° ë•Œë¬¸ì— Lock ì„ ê±¸ì–´ì¤€ë‹¤.
+	// Session Àº ¸ÖÆ¼ ¾²·¹µå ÇüÅÂ·Î µ¹¾Æ°¡±â ¶§¹®¿¡ Lock À» °É¾îÁØ´Ù.
 	USE_LOCK;
 
-	/* ìˆ˜ì‹  ê´€ë ¨ */
-	// send, recv ì™€ ê´€ë ¨ëœ Buffer
-	// - recvBuffer ëŠ”, ì¦‰, Recv ê³¼ì •ì€ í•œë²ˆì— í•˜ë‚˜ì˜ ì“°ë ˆë“œë§Œì´ ì ‘ê·¼ ê°€ëŠ¥í•˜ë‹¤.?
-	RecvBuffer _recvBuffer;
+							/* ¼ö½Å °ü·Ã */
+	RecvBuffer				_recvBuffer;
 
-	/* ì†¡ì‹  ê´€ë ¨ */
-	queue<SendBufferRef> _sendQueue;
-	// ë©€í‹°ì“°ë ˆë“œ í™˜ê²½ ê³ ë ¤í•˜ê¸°
-	Atomic<bool> _sendRegistered = false;
+							/* ¼Û½Å °ü·Ã */
+	Queue<SendBufferRef>	_sendQueue;
+
+							/* ¸ÖÆ¼¾²·¹µå È¯°æ °í·ÁÇÏ±â */
+	Atomic<bool>			_sendRegistered = false;
+
 private:
-						/* IocpEvent ì¬ì‚¬ìš© */
-	// _recvEvent.owner : WSARecv í•¨ìˆ˜ë¥¼ í˜¸ì¶œí•˜ê¸° ì´ì „ì— ++ (RegisterRecv)
-	//                    ì‹¤íŒ¨ í˜¹ì€ ì™„ë£Œ (ProcessRecv) í•˜ê³  -- 
+						/* IocpEvent Àç»ç¿ë */
+	ConnectEvent		_connectEvent;
+	DisconnectEvent		_disconnectEvent;
 	RecvEvent			_recvEvent;
-
-	// Client ì˜ ê²½ìš°, Serverì— Connect í•˜ëŠ” Event
-	DisconnectEvent        _disconnectEvent;
-	ConnectEvent        _connectEvent;
-	SendEvent           _sendEvent;
+	SendEvent			_sendEvent;
 };
-
 
 /*-----------------
 	PacketSession
 ------------------*/
 
-// TCP ë°ì´í„° ê²½ê³„ê°€ ì¡´ì¬ X
-// ë”°ë¼ì„œ ëª¨ë“  ë°ì´í„°ê°€ ì „ë‹¬ë˜ì—ˆëŠ”ì§€ í™•ì¸í•˜ëŠ” ì ˆì°¨ í•„ìš”í•˜ë‹¤.
-
-// íŒ¨í‚·ì„ ë³´ë‚¼ ë•Œë§ˆë‹¤ Header ë¥¼ ì¶”ê°€í•´ì„œ ë³´ë‚¼ ê²ƒì´ë‹¤.
+// TCP µ¥ÀÌÅÍ °æ°è°¡ Á¸Àç X
+// µû¶ó¼­ ¸ğµç µ¥ÀÌÅÍ°¡ Àü´ŞµÇ¾ú´ÂÁö È®ÀÎÇÏ´Â ÀıÂ÷ ÇÊ¿äÇÏ´Ù.
+// ÆĞÅ¶À» º¸³¾ ¶§¸¶´Ù Header ¸¦ Ãß°¡ÇØ¼­ º¸³¾ °ÍÀÌ´Ù.
 struct PacketHeader
 {
-	uint16 size; // ì „ì†¡í•˜ê³ ì í•˜ëŠ” íŒ¨í‚· ì‚¬ì´ì¦ˆ
-	uint16 id;   // í”„ë¡œí† ì½œID (ex. 1=ë¡œê·¸ì¸ ìš”ì²­, 2=ì´ë™ìš”ì²­)
-	             // ì¦‰, í•´ë‹¹ ID ë¥¼ ë³´ê³  ì–´ë–¤ ë‚´ìš©ì´ ë“¤ì–´ìˆëŠ”ì§€ íŒŒì•…í•  ìˆ˜ ìˆë‹¤.
+	uint16 size; // Àü¼ÛÇÏ°íÀÚ ÇÏ´Â ÆĞÅ¶ »çÀÌÁî
+	uint16 id;	 // ÇÁ·ÎÅäÄİID (ex. 1=·Î±×ÀÎ ¿äÃ», 2=ÀÌµ¿¿äÃ»)
+	             // Áï, ÇØ´ç ID ¸¦ º¸°í ¾î¶² ³»¿ëÀÌ µé¾îÀÖ´ÂÁö ÆÄ¾ÇÇÒ ¼ö ÀÖ´Ù.
 };
 
-// ì•„ë˜ì™€ ê°™ì´ ì§„í–‰í•  ê²ƒì´ë‹¤.
-// ì¦‰, ì•ì— 4byte ì— í•´ë‹¹í•˜ëŠ” PacketHeader ë‚´ìš©ì„ ì°¸ì¡°í•˜ì—¬, ë°›ì€ data í™•ì¸
+// ¾Æ·¡¿Í °°ÀÌ ÁøÇàÇÒ °ÍÀÌ´Ù.
+// Áï, ¾Õ¿¡ 4byte ¿¡ ÇØ´çÇÏ´Â PacketHeader ³»¿ëÀ» ÂüÁ¶ÇÏ¿©, ¹ŞÀº data È®ÀÎ
 // [size(2byte)][id(2byte)][data...][size(2byte)][id(2byte)][data...]
-
 class PacketSession : public Session
 {
 public:
 	PacketSession();
 	virtual ~PacketSession();
 
-	PacketSessionRef	GetPacketSessionRef() 
-	{ return static_pointer_cast<PacketSession>(shared_from_this()); }
+	PacketSessionRef	GetPacketSessionRef() { return static_pointer_cast<PacketSession>(shared_from_this()); }
 
 protected:
-	// sealed : ì»¨í…ì¸  ë‹¨ì—ì„œ PacketSession ë¥¼ ìƒì†ë°›ì€ ë…€ì„ì€ OnRecv ì‚¬ìš© ë¶ˆê°€
+	// sealed : ÄÁÅÙÃ÷ ´Ü¿¡¼­ PacketSession ¸¦ »ó¼Ó¹ŞÀº ³à¼®Àº OnRecv »ç¿ë ºÒ°¡
 	virtual int32		OnRecv(BYTE* buffer, int32 len) sealed;
-	// ì•„ë˜ í•¨ìˆ˜ëŠ” ì»¨í…ì¸  ë‹¨ì—ì„œ ë°˜ë“œì‹œ êµ¬í˜„í•˜ê²Œ í•˜ê¸° 
+	// ¾Æ·¡ ÇÔ¼ö´Â ÄÁÅÙÃ÷ ´Ü¿¡¼­ ¹İµå½Ã ±¸ÇöÇÏ°Ô ÇÏ±â 
 	virtual void		OnRecvPacket(BYTE* buffer, int32 len) abstract;
 };

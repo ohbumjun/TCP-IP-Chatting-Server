@@ -1,0 +1,10 @@
+protoc --proto_path=IMPORT_PATH --cpp_out=DST_DIR --java_out=DST_DIR --python_out=DST_DIR --go_out=DST_DIR --ruby_out=DST_DIR --objc_out=DST_DIR --csharp_out=DST_DIR path/to/file.proto
+
+
+// proto_path == | 로 표현 가능
+// ./ : 같은 경로에 CPP 형태로 출력 하라
+// ./Protocol.proto 라는 파일을 변환할 것이다.
+// IF ERRORLEVEL 1 PAUSE : batch 파일 문법
+
+protoc.exe -I=./ --cpp_out=./ ./Protocol.proto
+IF ERRORLEVEL 1 PAUSE

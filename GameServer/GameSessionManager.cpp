@@ -18,6 +18,7 @@ void GameSessionManager::Remove(GameSessionRef session)
 
 void GameSessionManager::Broadcast(SendBufferRef sendBuffer)
 {
+
 	// 만약 여기서 에러가 난다면 ?
 	// 1) WRITE_LOCK 로직에 에러가 있어서 BroadCast 하는 순간, 위의 Remove 함수를 호출해서 꼬인다거나
 	//    => std::mutex 를 통해서 해결해보거나...
@@ -26,7 +27,7 @@ void GameSessionManager::Broadcast(SendBufferRef sendBuffer)
 	//    => 진짜 연결이 끊겨서 Disconnect 가 뜬다.
 	//    => Disconnect() 함수를 호출 => GameSession::OnDisconnect 호출 => GameSessionManager 의 Remove 호출
 	/*
-		  즉, 
+		  즉,
 		  for (GameSessionRef session : _sessions)
 		{
 			// 아래와 같은 함수를 사실상 추가하는 것일 수도 있다는 것이다.
@@ -35,8 +36,8 @@ void GameSessionManager::Broadcast(SendBufferRef sendBuffer)
 
 		해결책 ?
 		== session->Send(sendBuffer) 가 호출되는 동안에 GameSessionManager 의 Remove 가 호출되지 않게 하면 된다.
-		
-		Session::Disconnect 에서 OnDiscoonect 함수를 바로 실행하는 것이 아니라 
+
+		Session::Disconnect 에서 OnDiscoonect 함수를 바로 실행하는 것이 아니라
 		Disconnect 등록을 해주고
 		ProcessConnect 에서 할 수 있도록 진행해주면 된다.
 

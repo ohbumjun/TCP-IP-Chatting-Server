@@ -3,6 +3,10 @@
 #include "Session.h"
 #include "Listener.h"
 
+/*-------------
+	Service
+--------------*/
+
 Service::Service(ServiceType type, NetAddress address, IocpCoreRef core, SessionFactory factory, int32 maxSessionCount)
 	: _type(type), _netAddress(address), _iocpCore(core), _sessionFactory(factory), _maxSessionCount(maxSessionCount)
 {
@@ -13,19 +17,13 @@ Service::~Service()
 {
 }
 
-bool Service::Start()
+void Service::CloseService()
 {
-	return false;
-}
-
-void Service::CloneService()
-{
-	// Todo 
+	// TODO
 }
 
 SessionRef Service::CreateSession()
 {
-	// 세션 생성
 	SessionRef session = _sessionFactory();
 
 	// 서비스 세팅
@@ -41,7 +39,7 @@ SessionRef Service::CreateSession()
 void Service::AddSession(SessionRef session)
 {
 	WRITE_LOCK;
-	_sessionCount += 1;
+	_sessionCount++;
 	_sessions.insert(session);
 }
 
@@ -50,11 +48,14 @@ void Service::ReleaseSession(SessionRef session)
 	WRITE_LOCK;
 	ASSERT_CRASH(_sessions.erase(session) != 0);
 	_sessionCount--;
-};
+}
 
-ClientService::ClientService(NetAddress targetAddress,
-	IocpCoreRef core, SessionFactory factory, int32 maxSessionCount) 
-: Service(ServiceType::Client, targetAddress, core, factory, maxSessionCount)
+/*-----------------
+	ClientService
+------------------*/
+
+ClientService::ClientService(NetAddress targetAddress, IocpCoreRef core, SessionFactory factory, int32 maxSessionCount)
+	: Service(ServiceType::Client, targetAddress, core, factory, maxSessionCount)
 {
 }
 
@@ -65,7 +66,7 @@ bool ClientService::Start()
 
 	const int32 sessionCount = GetMaxSessionCount();
 
-	for (int32 i = 0; i < sessionCount; ++i)
+	for (int32 i = 0; i < sessionCount; i++)
 	{
 		SessionRef session = CreateSession();
 
@@ -76,10 +77,7 @@ bool ClientService::Start()
 	return true;
 }
 
-
-// address : 자기 자신의 주소 
-ServerService::ServerService(NetAddress address, 
-	IocpCoreRef core, SessionFactory factory, int32 maxSessionCount)
+ServerService::ServerService(NetAddress address, IocpCoreRef core, SessionFactory factory, int32 maxSessionCount)
 	: Service(ServiceType::Server, address, core, factory, maxSessionCount)
 {
 }
@@ -89,23 +87,21 @@ bool ServerService::Start()
 	if (CanStart() == false)
 		return false;
 
-	_listener = std::make_shared<Listener>();
-
+	_listener = MakeShared<Listener>();
 	if (_listener == nullptr)
 		return false;
 
 	ServerServiceRef service = static_pointer_cast<ServerService>(shared_from_this());
-	
+
 	if (_listener->StartAccept(service) == false)
-	{
 		return false;
-	}
 
 	return true;
 }
 
-void ServerService::CloneService()
+void ServerService::CloseService()
 {
-	Service::CloneService();
-}
+	// TODO
 
+	Service::CloseService();
+}

@@ -2,13 +2,16 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <Filter Include="Main">
-      <UniqueIdentifier>{9b53f558-e075-473b-94f3-be0e197c54ad}</UniqueIdentifier>
+      <UniqueIdentifier>{e8dccf15-3bdd-4854-8dd2-f0ba5d770abc}</UniqueIdentifier>
     </Filter>
     <Filter Include="Utils">
-      <UniqueIdentifier>{971caa64-4c18-4fd8-aa3e-7cc9784c5d0f}</UniqueIdentifier>
+      <UniqueIdentifier>{37e6aaa6-0769-426b-aa67-d42e60cd791c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Protocol">
+      <UniqueIdentifier>{603496b5-138a-4725-951a-b0a8ee8dfe85}</UniqueIdentifier>
     </Filter>
     <Filter Include="StudyDatas">
-      <UniqueIdentifier>{21c1bb33-567b-4c56-a905-e5bd41cb59df}</UniqueIdentifier>
+      <UniqueIdentifier>{7cc8149c-c8ec-4572-a0b4-bec11e4b31d5}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -18,36 +21,23 @@
     <ClCompile Include="pch.cpp">
       <Filter>Utils</Filter>
     </ClCompile>
-    <ClCompile Include="ConcurrentQueue.cpp">
-      <Filter>Main</Filter>
-    </ClCompile>
-    <ClCompile Include="ConcurrentStack.cpp">
-      <Filter>Main</Filter>
-    </ClCompile>
-    <ClCompile Include="AccountManager.cpp" />
-    <ClCompile Include="PlayerManager.cpp" />
-    <ClCompile Include="GameSessionManager.cpp">
-      <Filter>Main</Filter>
-    </ClCompile>
     <ClCompile Include="GameSession.cpp">
+      <Filter>Main</Filter>
+    </ClCompile>
+    <ClCompile Include="GameSessionManager.cpp">
       <Filter>Main</Filter>
     </ClCompile>
     <ClCompile Include="ServerPacketHandler.cpp">
       <Filter>Main</Filter>
+    </ClCompile>
+    <ClCompile Include="Protocol.pb.cc">
+      <Filter>Protocol</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
       <Filter>Utils</Filter>
     </ClInclude>
-    <ClInclude Include="ConcurrentStack.h">
-      <Filter>Main</Filter>
-    </ClInclude>
-    <ClInclude Include="ConcurrentQueue.h">
-      <Filter>Main</Filter>
-    </ClInclude>
-    <ClInclude Include="AccountManager.h" />
-    <ClInclude Include="PlayerManager.h" />
     <ClInclude Include="GameSessionManager.h">
       <Filter>Main</Filter>
     </ClInclude>
@@ -57,27 +47,27 @@
     <ClInclude Include="ServerPacketHandler.h">
       <Filter>Main</Filter>
     </ClInclude>
+    <ClInclude Include="Protocol.pb.h">
+      <Filter>Protocol</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
+    <Text Include="Overlapped_CompletionRouting.txt">
+      <Filter>StudyDatas</Filter>
+    </Text>
+    <Text Include="Overlapped_EventBased.txt">
+      <Filter>StudyDatas</Filter>
+    </Text>
     <Text Include="Select_Server.txt">
       <Filter>StudyDatas</Filter>
     </Text>
     <Text Include="WSASelect_Server.txt">
       <Filter>StudyDatas</Filter>
     </Text>
-    <Text Include="Client_BlockingSendtxt.txt">
-      <Filter>StudyDatas</Filter>
-    </Text>
-    <Text Include="Overlapped_EventBased.txt">
-      <Filter>StudyDatas</Filter>
-    </Text>
-    <Text Include="Overlapped_CompletionRouting.txt">
+    <Text Include="DummyClienttxt.txt">
       <Filter>StudyDatas</Filter>
     </Text>
     <Text Include="IOCP.txt">
-      <Filter>StudyDatas</Filter>
-    </Text>
-    <Text Include="DummyClienttxt.txt">
       <Filter>StudyDatas</Filter>
     </Text>
   </ItemGroup>

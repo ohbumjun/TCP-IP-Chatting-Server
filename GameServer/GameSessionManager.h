@@ -12,13 +12,12 @@ class GameSessionManager
 public:
 	void Add(GameSessionRef session);
 	void Remove(GameSessionRef session);
-
-	// GameSessionManager 이 들고 있는 모든 Session 에게 동일 데이터 보내주기
 	void Broadcast(SendBufferRef sendBuffer);
 
 private:
 	USE_LOCK;
-	set<GameSessionRef> _sessions;
+	// 최종적으로 서버에 연결된 동시 접속자 수 (클라이언트) 만큼의 session 이 존재하게 될 것이다.
+	Set<GameSessionRef> _sessions;
 };
 
 extern GameSessionManager GSessionManager;

@@ -1,37 +1,36 @@
 #pragma once
 
+class SendBufferChunk;
+
 /*----------------
 	SendBuffer
 -----------------*/
 
-class SendBuffer : public enable_shared_from_this<SendBuffer>
+class SendBuffer
 {
 public:
-	// SendBuffer(int32 bufferSize);
 	SendBuffer(SendBufferChunkRef owner, BYTE* buffer, uint32 allocSize);
 	~SendBuffer();
 
-	BYTE* Buffer() { return _buffer; }
+	BYTE*		Buffer() { return _buffer; }
 	// 최초 할당된 크기 
-	uint32 AllocSize() { return _allocSize; }
-	int32 WriteSize() { return _writeSize; }
-
+	uint32		AllocSize() { return _allocSize; }
+	uint32		WriteSize() { return _writeSize; }
 	// int32 Capacity() { return static_cast<int32>(_buffer.size()); }
-	void Close(uint32 writeSize);
-	// void CopyData(uint32 writeSize);
+	void		Close(uint32 writeSize);
 
 private:
 	// SendBuffer 가 자체적으로 buffer 를 들고 있을 경우
 	// vector<BYTE>	_buffer;
-	
+
 	// (아래 변수들 : SendBufferChunk::Open 함수 참고)
 	// SendBufferChunk 내 일부 메모리 공간을 가리키는 포인터
-	BYTE* _buffer;
+	BYTE*				_buffer;
 	// SendBuffer 가 사용하는 전체 메모리 크기 
-	uint32 _allocSize = 0;
+	uint32				_allocSize = 0;
 	// SendBuffer 가 사용하는 전체 메모리 중에서 실제 사용하는 메모리 크기
-	uint32 _writeSize = 0;
-	SendBufferChunkRef _owner;
+	uint32				_writeSize = 0;
+	SendBufferChunkRef	_owner;
 };
 
 /*--------------------
@@ -52,21 +51,22 @@ public:
 	~SendBufferChunk();
 
 	void				Reset();
-	// 할당할 공간
+	// allocSize : 할당할 공간
 	SendBufferRef		Open(uint32 allocSize);
-	// 실질적으로 사용할 공간
+	// writeSize : 실질적으로 사용할 공간
 	void				Close(uint32 writeSize);
 
 	// 누군나 나를 열어서 데이터를 기입하고 있는가.
 	bool				IsOpen() { return _open; }
 	// &_buffer[_usedSize] : _usedSize 이전위치는 사용했으므로, 그 다음 위치부터
-	BYTE* Buffer() { return &_buffer[_usedSize]; }
+	BYTE*				Buffer() { return &_buffer[_usedSize]; }
 	// 사용가능한 공간
 	uint32				FreeSize() { return static_cast<uint32>(_buffer.size()) - _usedSize; }
 
 private:
-	array<BYTE, SEND_BUFFER_CHUNK_SIZE>		_buffer = {};
+	Array<BYTE, SEND_BUFFER_CHUNK_SIZE>		_buffer = {};
 	bool									_open = false;
+
 	// SEND_BUFFER_CHUNK_SIZE 중엣서 내가 얼맘만큼 사용했는가.
 	uint32									_usedSize = 0;
 };
@@ -96,5 +96,5 @@ private:
 
 private:
 	USE_LOCK;
-	vector<SendBufferChunkRef> _sendBufferChunks;
+	Vector<SendBufferChunkRef> _sendBufferChunks;
 };

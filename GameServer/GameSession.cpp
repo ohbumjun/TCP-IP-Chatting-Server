@@ -5,7 +5,6 @@
 
 void GameSession::OnConnected()
 {
-	// SessionManager ¿¡ Ãß°¡ 
 	GSessionManager.Add(static_pointer_cast<GameSession>(shared_from_this()));
 }
 
@@ -16,12 +15,9 @@ void GameSession::OnDisconnected()
 
 void GameSession::OnRecvPacket(BYTE* buffer, int32 len)
 {
-	cout << endl;
-
 	ServerPacketHandler::HandlePacket(buffer, len);
 }
 
 void GameSession::OnSend(int32 len)
 {
-	cout << "OnSend Len = " << len << endl;
 }

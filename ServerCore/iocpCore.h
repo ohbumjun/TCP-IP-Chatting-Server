@@ -1,9 +1,8 @@
 #pragma once
 
 /*----------------
-	IocpObject : iocp 에 등록할 수 있는 대상
+	IocpObject
 -----------------*/
-
 // enable_shared_from_this<IocpObject> : 자기 자신에 대한 Weak Ptr 을 들고 있게 됨
 class IocpObject : public enable_shared_from_this<IocpObject>
 {
@@ -35,6 +34,3 @@ private:
 	// CP 오브젝트 핸들
 	HANDLE		_iocpHandle;
 };
-
-// TEMP
-// extern IocpCore GIocpCore;

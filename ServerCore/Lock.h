@@ -26,13 +26,13 @@ class Lock
 		READ_COUNT_MAX = 0x0000'FFFF,
 		EMPTY_FLAG = 0x0000'0000
 	};
-public :
+public:
 	void WriteLock(const char* name);
 	void WriteUnlock(const char* name);
 	void ReadLock(const char* name);
 	void ReadUnlock(const char* name);
 
-private :
+private:
 	Atomic<uint32> _lockFlag = EMPTY_FLAG;
 
 	// WriteLock 등 lock 을 재귀적으로 호출해줄 수도 있다.
@@ -44,12 +44,14 @@ private :
 /*--- Lock Guard ---*/
 class ReadLockGuard
 {
-public :
-	ReadLockGuard(Lock& lock, const char* name) : 
-		_lock(lock), _name(name) { _lock.ReadLock(_name); };
+public:
+	ReadLockGuard(Lock& lock, const char* name) :
+		_lock(lock), _name(name) {
+		_lock.ReadLock(_name);
+	};
 	~ReadLockGuard() { _lock.ReadUnlock(_name); };
 
-private :
+private:
 	Lock& _lock;
 	const char* _name;
 };
@@ -57,8 +59,10 @@ private :
 class WriteLockGuard
 {
 public:
-	WriteLockGuard(Lock& lock, const char* name) : 
-		_lock(lock), _name(name) { _lock.WriteLock(_name); };
+	WriteLockGuard(Lock& lock, const char* name) :
+		_lock(lock), _name(name) {
+		_lock.WriteLock(_name);
+	};
 	~WriteLockGuard() { _lock.WriteUnlock(_name); };
 
 private:

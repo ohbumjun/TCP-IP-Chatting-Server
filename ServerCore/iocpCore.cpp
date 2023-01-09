@@ -1,9 +1,6 @@
-ï»¿#include "pch.h"
+#include "pch.h"
 #include "IocpCore.h"
 #include "IocpEvent.h"
-
-// TEMP
-IocpCore GIocpCore;
 
 /*--------------
 	IocpCore
@@ -11,7 +8,7 @@ IocpCore GIocpCore;
 
 IocpCore::IocpCore()
 {
-	// CP ìƒì„±
+	// CP »ı¼º
 	_iocpHandle = ::CreateIoCompletionPort(INVALID_HANDLE_VALUE, 0, 0, 0);
 	ASSERT_CRASH(_iocpHandle != INVALID_HANDLE_VALUE);
 }
@@ -23,42 +20,38 @@ IocpCore::~IocpCore()
 
 bool IocpCore::Register(IocpObjectRef iocpObject)
 {
-	// CP ì— locpObject ë“±ë¡
-	
-	// 1ë²ˆì§¸ : iocpObject->GetHandle() : ì†Œì¼“
-	// 3ë²ˆì§¸ : Key ê°’ = > ê° ì“°ë ˆë“œì—ì„œ ë°›ì„ ì •ë³´
-	return ::CreateIoCompletionPort(iocpObject->GetHandle(), 
-		_iocpHandle, 
-		/*key ê°’ : ì›ë˜ reinterpret_cast<ULONG_PTR>(iocpObject)*/
-		0, 
-		0);
+	// CP ¿¡ locpObject µî·Ï
+
+	// 1¹øÂ° : iocpObject->GetHandle() : ¼ÒÄÏ
+	// 3¹øÂ° : Key °ª = > °¢ ¾²·¹µå¿¡¼­ ¹ŞÀ» Á¤º¸
+	return ::CreateIoCompletionPort(iocpObject->GetHandle(), _iocpHandle, 
+		/*key °ª : ¿ø·¡ reinterpret_cast<ULONG_PTR>(iocpObject)*/
+		/*key*/0, 0);
 }
 
-// Woker Thread ë“¤ì´ í•´ë‹¹ í•¨ìˆ˜ë¥¼ ê³„ì†í•˜ì—¬ í˜¸ì¶œí•˜ë©´ì„œ
-// ì¼ê°ì´ ìˆëŠ”ì§€ í™•ì¸í•œë‹¤ (ì…ì¶œë ¥ì´ ì™„ë£Œëœ ì •ë³´ê°€ ìˆëŠ”ì§€ í™•ì¸í•œë‹¤)
+// Woker Thread µéÀÌ ÇØ´ç ÇÔ¼ö¸¦ °è¼ÓÇÏ¿© È£ÃâÇÏ¸é¼­
+// ÀÏ°¨ÀÌ ÀÖ´ÂÁö È®ÀÎÇÑ´Ù (ÀÔÃâ·ÂÀÌ ¿Ï·áµÈ Á¤º¸°¡ ÀÖ´ÂÁö È®ÀÎÇÑ´Ù)
 bool IocpCore::Dispatch(uint32 timeoutMs)
 {
 	DWORD numOfBytes = 0;
-	ULONG_PTR key = 0;
-	// IocpObject* iocpObject = nullptr;
+	ULONG_PTR key = 0;	
 	IocpEvent* iocpEvent = nullptr;
 
-	// GetQueuedCompletionStatus : í•´ë‹¹ í•¨ìˆ˜ëŠ” ì¼ê°ì´ ì—†ìœ¼ë©´, ë°”ë¡œ í•´ë‹¹ ì“°ë ˆë“œ ë¸”ë¡œí‚¹ ìƒíƒœì— ë†“ì¸ë‹¤.
-	//                             ì¼ê°ì´ ë“¤ì–´ì˜¤ë©´, ì“°ë ˆë“œí’€ì—ì„œ íŠ¹ì • ì“°ë ˆë“œë¥¼ ê¹¨ìš°ëŠ” ë°©ì‹
-
-	// numOfBytes : ì „ë‹¬ëœ ì •ë³´ í¬ê¸°
-	// iocpObject : CreateIoCompletionPort ì„ í†µí•´ Register ì‹œ ë„˜ê²¨ì¤€ Key ê°’
-	// iocpEvent == overlappedEx : WSARecv ë“± í•¨ìˆ˜ í˜¸ì¶œì‹œ ì–»ì–´ë‚¸ ë°ì´í„°
-	if (::GetQueuedCompletionStatus(_iocpHandle, OUT & numOfBytes, 
-		/*IocpCore::Register ì—ì„œ ë„˜ê²¨ì¤€ Key ê°’ => ë§Œì•½ ì• ì´ˆì— Key ê°’ ì•ˆë„˜ê²¨ì¤¬ìœ¼ë©´, ì—¬ê¸°ì„œë„ ë³µì› X*/
-		// ì‚¬ìš©í• ì‹œ : OUT reinterpret_cast<PULONG_PTR>(&iocpObject), 
-		// ê·¸ëŸ°ë° ì—¬ê¸°ì„œëŠ” ë³µì›ì‹œí‚¨ Event ê°ì²´ì— iocpObject ë¥¼ ë¶€ëª¨ë¡œ ì„¸íŒ…í•˜ê³ 
-		// Event ê°ì²´ë¥¼ í†µí•´ì„œ iocpObject ì •ë³´ë¥¼ ì–»ì–´ì˜¤ëŠ” ë°©ì‹ìœ¼ë¡œ ì§„í–‰í•  ê²ƒì´ë‹¤.
-		&key,
-		OUT reinterpret_cast<LPOVERLAPPED*>(&iocpEvent), timeoutMs))
+	// GetQueuedCompletionStatus : ÇØ´ç ÇÔ¼ö´Â ÀÏ°¨ÀÌ ¾øÀ¸¸é, ¹Ù·Î ÇØ´ç ¾²·¹µå ºí·ÎÅ· »óÅÂ¿¡ ³õÀÎ´Ù.
+	//                             ÀÏ°¨ÀÌ µé¾î¿À¸é, ¾²·¹µåÇ®¿¡¼­ Æ¯Á¤ ¾²·¹µå¸¦ ±ú¿ì´Â ¹æ½Ä
+	// numOfBytes : Àü´ŞµÈ Á¤º¸ Å©±â
+	// iocpObject : CreateIoCompletionPort À» ÅëÇØ Register ½Ã ³Ñ°ÜÁØ Key °ª
+	// iocpEvent == overlappedEx : WSARecv µî ÇÔ¼ö È£Ãâ½Ã ¾ò¾î³½ µ¥ÀÌÅÍ
+	if (::GetQueuedCompletionStatus(_iocpHandle, OUT &numOfBytes, 
+		/*IocpCore::Register ¿¡¼­ ³Ñ°ÜÁØ Key °ª => ¸¸¾à ¾ÖÃÊ¿¡ Key °ª ¾È³Ñ°ÜÁáÀ¸¸é, ¿©±â¼­µµ º¹¿ø X*/
+		// »ç¿ëÇÒ½Ã : OUT reinterpret_cast<PULONG_PTR>(&iocpObject), 
+		// ±×·±µ¥ ¿©±â¼­´Â º¹¿ø½ÃÅ² Event °´Ã¼¿¡ iocpObject ¸¦ ºÎ¸ğ·Î ¼¼ÆÃÇÏ°í
+		// Event °´Ã¼¸¦ ÅëÇØ¼­ iocpObject Á¤º¸¸¦ ¾ò¾î¿À´Â ¹æ½ÄÀ¸·Î ÁøÇàÇÒ °ÍÀÌ´Ù.
+		OUT &key, OUT reinterpret_cast<LPOVERLAPPED*>(&iocpEvent), timeoutMs))
 	{
-		// Event ì— ëŒ€í•œ iocpObject ì£¼ì¸ ë³µì›
 		IocpObjectRef iocpObject = iocpEvent->owner;
+
+		// Event ¿¡ ´ëÇÑ iocpObject ÁÖÀÎ º¹¿ø
 		iocpObject->Dispatch(iocpEvent, numOfBytes);
 	}
 	else
@@ -69,6 +62,7 @@ bool IocpCore::Dispatch(uint32 timeoutMs)
 		case WAIT_TIMEOUT:
 			return false;
 		default:
+			// TODO : ·Î±× Âï±â
 			IocpObjectRef iocpObject = iocpEvent->owner;
 			iocpObject->Dispatch(iocpEvent, numOfBytes);
 			break;

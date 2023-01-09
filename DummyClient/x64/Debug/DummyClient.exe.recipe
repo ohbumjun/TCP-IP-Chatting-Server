@@ -2,7 +2,7 @@
 <Project>
   <ProjectOutputs>
     <ProjectOutput>
-      <FullPath>D:\DirectXPersonalProjectFolder\서버프로젝트\GameServer\Binary\Debug\DummyClient.exe</FullPath>
+      <FullPath>D:\DirectXPersonalProjectFolder\서버프로젝트\ProtoBufSrcCode\Binary\Debug\DummyClient.exe</FullPath>
     </ProjectOutput>
   </ProjectOutputs>
   <ContentFiles />

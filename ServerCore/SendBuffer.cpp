@@ -5,8 +5,8 @@
 	SendBuffer
 -----------------*/
 
-SendBuffer::SendBuffer(SendBufferChunkRef owner, BYTE* buffer, uint32 allocSize) :
-	_owner(owner), _buffer(buffer), _allocSize(allocSize)
+SendBuffer::SendBuffer(SendBufferChunkRef owner, BYTE* buffer, uint32 allocSize)
+	: _owner(owner), _buffer(buffer), _allocSize(allocSize)
 {
 }
 
@@ -50,14 +50,12 @@ void SendBufferChunk::Reset()
 {
 	_open = false;
 
-	// 기존에 해당 Chunk 을 사용하던 녀석이 있었을 수도 있으므로
 	_usedSize = 0;
 }
 
 SendBufferRef SendBufferChunk::Open(uint32 allocSize)
 {
 	ASSERT_CRASH(allocSize <= SEND_BUFFER_CHUNK_SIZE);
-
 	ASSERT_CRASH(_open == false);
 
 	if (allocSize > FreeSize())
@@ -72,7 +70,7 @@ SendBufferRef SendBufferChunk::Open(uint32 allocSize)
 	// 절대로 [    ] 라는 SendBufferChunk 도 삭제되면 안된다.
 	// 따라서 ref Cnt 를 통해 관리할 것이다.
 	// 또한 SendBuffer 또한 자기가 사용하고 있는 SendBufferChunk 공간도 알고 있게 할 것이다.
-	return std::make_shared<SendBuffer>(shared_from_this(), Buffer(), allocSize);
+	return ObjectPool<SendBuffer>::MakeShared(shared_from_this(), Buffer(), allocSize);
 }
 
 // 해당 영역만큼 실제 SendBuffer에서 사용하고 있다는 의미
@@ -96,15 +94,12 @@ SendBufferRef SendBufferManager::Open(uint32 size)
 	// 그리고 매번 데이터를 Send 할 때마다 , 자기가 할당한 SendBufferChunk 에서 메모리를 나눠서 pooling
 	if (LSendBufferChunk == nullptr)
 	{
-		LSendBufferChunk = Pop(); // WRITE_LOCK 걸어주고 있다.
+		LSendBufferChunk = Pop(); // WRITE_LOCK
 		LSendBufferChunk->Reset();
-	}
+	}		
 
 	// 혹시나 Open 을 여러번 하게 될까봐 체크해주는 부분이다.
-	bool IsOpen = LSendBufferChunk->IsOpen();
-	if (IsOpen == false) //
-		bool h = true;
-	ASSERT_CRASH(IsOpen == false);
+	ASSERT_CRASH(LSendBufferChunk->IsOpen() == false);
 
 	// - SendBufferChunk 라는 것은 어마하게 큰 메모리 공간 [            ]
 	// - 그리고 왼쪽부터 해서 차례대로 메모리를 사용하게 될 것이다.
@@ -115,11 +110,12 @@ SendBufferRef SendBufferManager::Open(uint32 size)
 	//   그런데 날린다는 것은, 메모리 해제가 아니다. 우리가 아래에서 보면
 	//   shared_ptr 2번째 인자로 pushGlobal 이 되므로, ref cnt 가 0이 되면
 	//   다시 sendBufferVector 에 들어가게 될 것이다.
-	
+
 	// 다 썼으면 버리고 새거로 교체
 	// (여유 공간이, 우리가 할당해야 하는 Size 보다 작다면)
 	if (LSendBufferChunk->FreeSize() < size)
 	{
+		// Pop() 하는 순간 기존에 LSendBufferChunk 는 ref cnt 가 0이 되어, push Global 된다.
 		LSendBufferChunk = Pop(); // WRITE_LOCK
 		LSendBufferChunk->Reset();
 	}
@@ -131,7 +127,8 @@ SendBufferRef SendBufferManager::Open(uint32 size)
 
 SendBufferChunkRef SendBufferManager::Pop()
 {
-	cout << "POP GLOBAL SENDBUFFERCHUNK" << endl;
+	cout << "Pop SENDBUFFERCHUNK" << endl;
+
 	{
 		WRITE_LOCK;
 		if (_sendBufferChunks.empty() == false)
@@ -147,7 +144,7 @@ SendBufferChunkRef SendBufferManager::Pop()
 	// - SendBufferChunk 의 경우 ref cnt가 0 이 되면, 메모리를 날리는 것이 아니라
 	// - pushGlobal 로 들어와서 _sendBufferChunks 모임에다가 다시 넣어줄 것이다.
 	// - 즉, 재사용을 무한정으로 한다는 것이다.
-	return SendBufferChunkRef(new SendBufferChunk, PushGlobal);
+	return SendBufferChunkRef(xnew<SendBufferChunk>(), PushGlobal);
 }
 
 void SendBufferManager::Push(SendBufferChunkRef buffer)
@@ -164,7 +161,7 @@ void SendBufferManager::PushGlobal(SendBufferChunk* buffer)
 	// 재사용되므로 메모리 해제가 되지 않을 수도 있다.
 	// 따라서 정상적으로 메모리 해제가 이루어지는지 확인하기 위해
 	// 로그를 찍어줄 것이다.
+	cout << "PushGlobal SENDBUFFERCHUNK" << endl;
 
-	cout << "PUSH GLOBAL SENDBUFFERCHUNK" << endl;
 	GSendBufferManager->Push(SendBufferChunkRef(buffer, PushGlobal));
 }

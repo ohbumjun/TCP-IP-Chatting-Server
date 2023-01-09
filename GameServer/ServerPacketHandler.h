@@ -1,12 +1,51 @@
 #pragma once
-
 #include "BufferReader.h"
 #include "BufferWriter.h"
+#include "Protocol.pb.h"
 
 enum
 {
 	S_TEST = 1
 };
+
+class ServerPacketHandler
+{
+public:
+	static void HandlePacket(BYTE* buffer, int32 len);
+
+	static SendBufferRef MakeSendBuffer(Protocol::S_TEST& pkt);
+};
+
+// 여러 형태의 packet 이 있을 수 있으므로 template 으로 세팅할 것이다.
+template<typename T>
+SendBufferRef _MakeSendBuffer(T& pkt, uint16 pktId)
+{
+	// 데이터의 크기 세팅 
+	const uint16 dataSize = static_cast<uint16>(pkt.ByteSizeLong());
+	// 패킷에 들어있는 전체 크기 (Packet Header 를 만들어서 크기, Protocol ID 세팅)
+	const uint16 packetSize = dataSize + sizeof(PacketHeader);
+
+	// 필요한 만큼 Open 한다.
+	SendBufferRef sendBuffer = GSendBufferManager->Open(packetSize);
+
+	// 시작 주소 가져오기 => packet Header 값에 접근하기 
+	PacketHeader* header = reinterpret_cast<PacketHeader*>(sendBuffer->Buffer());
+	header->size = packetSize;
+	header->id = pktId;
+
+	// Serialize 할 것이다
+	// 1) 데이터의 시작 주소를 넘겨줘야 한다. => Packet Header 만큼 건너 뛰기
+	//    header[1] ? => header 가 4byte => header[1] 은 곧 시작 주소로 부터 4byte 이동
+	ASSERT_CRASH(pkt.SerializeToArray(&header[1], dataSize));
+
+	// 끝날 때 Close
+	sendBuffer->Close(packetSize);
+
+	return sendBuffer;
+}
+
+/*자체 패킷 사용시 코드*/
+/*
 
 template<typename T, typename C>
 class PacketIterator
@@ -43,7 +82,7 @@ private:
 	uint16 _index;
 };
 
-// T : 데이터 
+// T : 데이터
 template<typename T>
 class PacketList
 {
@@ -60,7 +99,7 @@ public:
 
 	uint16 Count() { return _count; }
 
-	// ranged - for 
+	// ranged - for
 	PacketIterator<T, PacketList<T>> begin()
 	{
 		return PacketIterator<T, PacketList<T>>(*this, 0);
@@ -74,15 +113,6 @@ private:
 	uint16 _count;
 };
 
-class ServerPacketHandler
-{
-public:
-	static void HandlePacket(BYTE* buffer, int32 len);
-
-	// S_TEST 패킷을 만들어주는 함수 
-	// static SendBufferRef Make_S_TEST(uint64 id, 
-	// 	uint32 hp, uint16 attack, vector<BuffData> buffs, wstring name);
-};
 
 #pragma pack(1)
 struct PKT_S_TEST
@@ -112,7 +142,7 @@ struct PKT_S_TEST
 	//			중에서 BufferData 가 시작하는 위치
 	uint16 buffsOffset;
 
-	// 가변데이터 총 개수 
+	// 가변데이터 총 개수
 	uint16 buffsCount;
 
 	// 아래와 같이 내부에 데이터를 받아들일 필요 없이
@@ -125,7 +155,7 @@ struct PKT_S_TEST
 	// 보내는 측에서는 Validata 할 필요 X
 	// bool Validate();
 
-	// 가변 데이터들의 배열 형태 
+	// 가변 데이터들의 배열 형태
 	using BuffsList = PacketList<PKT_S_TEST::BuffListItem>;
 
 	BuffsList GetBuffsList()
@@ -165,7 +195,7 @@ public:
 		_pkt->buffsCount = 0;  // To Fill
 	}
 
-	// 가변 데이터를 추가하기 
+	// 가변 데이터를 추가하기
 	// [BuffsListItem BuffsListItem BuffsListItem] 와 같이
 	// 같은 타입의 가변 데이터를 배열 형태로 한꺼번에 추가하기
 	// 왜 ? 중간에 다른 타입의 데이터가 들어가길 원하지 않는다
@@ -174,8 +204,8 @@ public:
 	{
 		// 가변 데이터의 첫번째 offset 위치 반환
 		BuffsListItem* firstBuffsListItem = _bw.Reserve<BuffsListItem>(buffCount);
-		
-		// 패킷에서 가변 데이터 부분 정보들 채워주기 
+
+		// 패킷에서 가변 데이터 부분 정보들 채워주기
 		_pkt->buffsOffset = (uint64)firstBuffsListItem - (uint64)_pkt;
 		_pkt->buffsCount = buffCount;
 
@@ -186,7 +216,7 @@ public:
 	{
 		uint64* firstVictimsListItem = _bw.Reserve<uint64>(victimsCount);
 
-		// Victim 에 대한 정보의 시작 Offset 정보 
+		// Victim 에 대한 정보의 시작 Offset 정보
 		buffsItem->victimsOffset = (uint64)firstVictimsListItem - (uint64)_pkt;
 		buffsItem->victimsCount = victimsCount;
 
@@ -210,3 +240,4 @@ private:
 
 
 #pragma pack()
+*/

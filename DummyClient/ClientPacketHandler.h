@@ -6,7 +6,6 @@ enum
 	// Server에서 Client로 보내는 것
 	S_TEST = 1
 };
-
 // Packet ID 에 따라서 서로 다른 처리를 진행해주기 위한 것
 class ClientPacketHandler
 {
@@ -15,6 +14,16 @@ public:
 
 	static void Handle_S_TEST(BYTE* buffer, int32 len);
 };
+
+
+
+
+/*
+(구글 protobuf 말고, 자체 Packet 만들어서 , 직렬화 한 코드) -------------------
+*/
+
+/*
+
 
 template<typename T, typename C>
 class PacketIterator
@@ -41,17 +50,17 @@ public :
 	T* operator->() { return &_container[_index]; }
 
 	PacketIterator& operator ++() { _index++; return *this; }
-	PacketIterator& operator ++(int32) { 
+	PacketIterator& operator ++(int32) {
 		PacketIterator ret = *this;
-		_index++; 
-		return ret; 
+		_index++;
+		return ret;
 	}
 private :
 	C& _container;
 	uint16 _index;
 };
 
-// T : 데이터 
+// T : 데이터
 template<typename T>
 class PacketList
 {
@@ -67,7 +76,7 @@ public :
 
 	uint16 Count() { return _count; }
 
-	// ranged - for 
+	// ranged - for
 	PacketIterator<T, PacketList<T>> begin()
 	{
 		return PacketIterator<T, PacketList<T>>(*this, 0);
@@ -80,3 +89,4 @@ private :
 	T* _data;
 	uint16 _count;
 };
+*/

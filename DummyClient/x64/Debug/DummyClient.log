@@ -1,2 +1,4 @@
 ﻿  ClientPacketHandler.cpp
-  DummyClient.vcxproj -> D:\DirectXPersonalProjectFolder\서버프로젝트\GameServer\Binary\Debug\DummyClient.exe
+  DummyClient.cpp
+  코드를 생성하고 있습니다...
+  DummyClient.vcxproj -> D:\DirectXPersonalProjectFolder\서버프로젝트\ProtoBufSrcCode\Binary\Debug\DummyClient.exe

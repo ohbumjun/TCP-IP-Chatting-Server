@@ -4,8 +4,6 @@
 // 1. 등록시 키값으로 넣어줄 때 (CreateIoCompletionPort)
 // 2. GetQueuedCompletionStatus 에서 overlapped 구조체로 넘겨주기
 
-#pragma once
-
 class Session;
 
 enum class EventType : uint8
@@ -33,17 +31,13 @@ class IocpEvent : public OVERLAPPED
 public:
 	IocpEvent(EventType type);
 
-	void		Init();
-	EventType	GetType() { return eventType; }
+	void			Init();
 
-public :
-	EventType	eventType;
-
+public:
+	EventType		eventType;
 	// 자신의 주인 기억하기 
-	IocpObjectRef owner;
+	IocpObjectRef	owner;
 };
-
-// 아래부터는 각각의 구체적인 Event 에 대한 클래스 생성
 
 /*----------------
 	ConnectEvent
@@ -55,9 +49,9 @@ public:
 	ConnectEvent() : IocpEvent(EventType::Connect) { }
 };
 
-/*----------------
+/*--------------------
 	DisconnectEvent
------------------*/
+----------------------*/
 
 class DisconnectEvent : public IocpEvent
 {
@@ -75,7 +69,7 @@ public:
 	AcceptEvent() : IocpEvent(EventType::Accept) { }
 
 public:
-	SessionRef _session = nullptr;
+	SessionRef	session = nullptr;
 };
 
 /*----------------
@@ -98,5 +92,5 @@ public:
 	SendEvent() : IocpEvent(EventType::Send) { }
 
 	// 임시로 Send 시에 보내는 데이터를 저장해둘 것이다
-	vector<SendBufferRef> sendBuffers;
+	Vector<SendBufferRef> sendBuffers;
 };

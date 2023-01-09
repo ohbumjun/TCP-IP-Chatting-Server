@@ -16,11 +16,11 @@ void Lock::WriteLock(const char* name)
 	// - (_lockFlag.load() && WRITE_THREAD_MASK) : 상위 16비트 추출
 	// - >> 16 : 상위 16비트에 있던 것이 내려오게 된다.
 	const uint32 lockThreadId = (_lockFlag.load() & WRITE_THREAD_MASK) >> 16;
-	
+
 	// 현재 해당 함수를 호출하고 있는 쓰레드와 동일하다면
 	// 동일한 쓰레드가 소유한 상태에서 또 lock 을 거는 것이므로
 	// writeCount 만 증가시키고 return
-	if (LThreadID == lockThreadId)
+	if (LThreadId == lockThreadId)
 	{
 		_writeCount++;
 		return;
@@ -29,7 +29,7 @@ void Lock::WriteLock(const char* name)
 	const int64 beginTick = ::GetTickCount64();
 
 	// 아무도 소유 및 공유하고 있지 않을 때 경합해서 소유권을 얻는다.
-	const uint32 desired = ((LThreadID << 16) & WRITE_THREAD_MASK);
+	const uint32 desired = ((LThreadId << 16) & WRITE_THREAD_MASK);
 
 	while (true)
 	{
@@ -55,9 +55,9 @@ void Lock::WriteLock(const char* name)
 		// CRASH
 		if (::GetTickCount64() - beginTick >= ACQUIRE_TIMEOUT_TICK)
 		{
-			CRASH("Lock Timeout"); 
+			CRASH("Lock Timeout");
 		}
-		
+
 		// 5000 번 확인하면 잠시동안 쉬게 할 것이다.
 		// yield : 현재 실행 중인 동등한 우선순위 이상의
 		// 다른 스레드에게 실행기회 양보한다.
@@ -100,7 +100,7 @@ void Lock::ReadLock(const char* name)
 	// 쿨하게 +1 처리를 해줄 것이다.
 	const uint32 lockThreadId = (_lockFlag.load() && WRITE_THREAD_MASK) >> 16;
 
-	if (LThreadID == lockThreadId)
+	if (LThreadId == lockThreadId)
 	{
 		_lockFlag.fetch_add(1);
 		return;
@@ -112,7 +112,7 @@ void Lock::ReadLock(const char* name)
 	// Read Cnt 는 하위 16비트에 Read Lock 을 몇개의 쓰레드가 잡고 있는지 확인하기
 	const int64 beginTick = ::GetTickCount64();
 
-	while(true)
+	while (true)
 	{
 		for (uint32 spinCount = 0; spinCount < MAX_SPIN_COUNT; ++spinCount)
 		{

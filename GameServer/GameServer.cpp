@@ -1,57 +1,47 @@
-#include <iostream>
-#include <atomic>
-#include <mutex>
-#include <windows.h>
-#include <future>
-
-#include "pch.h"
-#include "CorePch.h"
-#include "CoreMacro.h"
+ï»¿#include "pch.h"
 #include "ThreadManager.h"
-
-#include "PlayerManager.h"
-#include "AccountManager.h"
-
 #include "Service.h"
 #include "Session.h"
 #include "GameSession.h"
 #include "GameSessionManager.h"
 #include "BufferWriter.h"
 #include "ServerPacketHandler.h"
+#include <tchar.h>
+#include "Protocol.pb.h"
 
-// Service    : ¾î¶² ¿ªÇÒÀ» ÇÒ °ÍÀÎ°¡ ex) ¼­¹ö ? Å¬¶óÀÌ¾ğÆ® ?
-//            - µ¿½Ã Á¢¼ÓÀÚ ¼ö¿¡ ¸Â°Ô Session »ı¼º ¹× °ü¸® ±â´É
-// Session    : ½ÇÁúÀûÀÎ ±â´ÉÀ» ´ã´çÇÏ´Â °÷
-//            - ¼ÒÄÏ ¼ÒÀ¯, Recv, Send
-// Listener   : ¼­¹ö ¼ÒÄÏ => ÃÊ±âÈ­ ¹× AcceptEx ÇÔ¼ö µî È£Ãâ
-// IocpObject : CreateIOCompletionPort, WSARecv µîÀ» ÅëÇØ key °ªÀ¸·Î ³Ñ°ÜÁÖ±â À§ÇÑ Object 
-//            - Listener, Service °¡ »ó¼Ó¹Ş¾Æ¼­ Ã³¸®ÇÑ´Ù.
-// IocpEvent  : Accept, Recv, Send µî ´Ù¾çÇÑ ÀÌº¥Æ®¸¦ Å¬·¡½ºÈ­ ½ÃÅ² °Í -> OVERLAPPED ¸¦ »ó¼Ó
+// Service    : ì–´ë–¤ ì—­í• ì„ í•  ê²ƒì¸ê°€ ex) ì„œë²„ ? í´ë¼ì´ì–¸íŠ¸ ?
+//            - ë™ì‹œ ì ‘ì†ì ìˆ˜ì— ë§ê²Œ Session ìƒì„± ë° ê´€ë¦¬ ê¸°ëŠ¥
+// Session    : ì‹¤ì§ˆì ì¸ ê¸°ëŠ¥ì„ ë‹´ë‹¹í•˜ëŠ” ê³³
+//            - ì†Œì¼“ ì†Œìœ , Recv, Send
+// Listener   : ì„œë²„ ì†Œì¼“ => ì´ˆê¸°í™” ë° AcceptEx í•¨ìˆ˜ ë“± í˜¸ì¶œ
+// IocpObject : CreateIOCompletionPort, WSARecv ë“±ì„ í†µí•´ key ê°’ìœ¼ë¡œ ë„˜ê²¨ì£¼ê¸° ìœ„í•œ Object 
+//            - Listener, Service ê°€ ìƒì†ë°›ì•„ì„œ ì²˜ë¦¬í•œë‹¤.
+// IocpEvent  : Accept, Recv, Send ë“± ë‹¤ì–‘í•œ ì´ë²¤íŠ¸ë¥¼ í´ë˜ìŠ¤í™” ì‹œí‚¨ ê²ƒ -> OVERLAPPED ë¥¼ ìƒì†
 
 
-// ÆĞÅ¶ Á÷·ÄÈ­ (Serialization)
+// íŒ¨í‚· ì§ë ¬í™” (Serialization)
 /*
 class Player
 {
 public :
-	// ÀÚ. hp, attack °ú °°Àº µ¥ÀÌÅÍ´Â »ó°ü¾ø´Ù.
+	// ì. hp, attack ê³¼ ê°™ì€ ë°ì´í„°ëŠ” ìƒê´€ì—†ë‹¤.
 	int32 hp = 0;
 	int32 attack = 0;
 
-	// ÇÏÁö¸¸
-	// Player°¡ µ¿ÀûÇÒ´çµÇ´Â ÁÖ¼Ò¶õ, °¡»ó ÁÖ¼ÒÀÌ´Ù.
-	// ÇÁ·Î±×·¥À» ½ÇÇàÇÒ ¶§¸¶´Ù °è¼Ó ¹Ù²ï´Ù.
-	// µû¶ó¼­ target ÀÌ¶ó´Â ÁÖ¼Ò°ªÀ» ÆÄÀÏ¿¡ ÀúÀåÇØµµ
-	// ´ÙÀ½¿¡ ÇÁ·Î±×·¥¿¡ ¶ç¿ï ¶§´Â ÇØ´ç Á¤º¸´Â À¯È¿ÇÏÁö ¾Ê°Ô µÈ´Ù.
-	// °ğÀÌ°ğ´ë·Î º¹±¸ÇÒ ¼ö ¾ø´Â °ÍÀÌ´Ù.
-	// vector µµ ¸¶Âù°¡Áö. ³»ºÎÀûÀ¸·Î µ¿Àû ¹è¿­À» µé°í ÀÖÀ¸¹Ç·Î
-	
-	// ³×Æ®¿öÅ© Åë½Å¿¡¼­µµ ¸¶Âù°¡ÁöÀÌ´Ù.
-	// ³» ¸Ş¸ğ¸®¿¡¼­ÀÇ ÁÖ¼Ò°ª Á¤º¸¸¦ »ó´ë¿¡°Ô ³Ñ°ÜºÃÀÚ
-	// ¾Æ¹«·± ¾µ¸ğ°¡ ¾ø´Â °ÍÀÌ´Ù.
+	// í•˜ì§€ë§Œ
+	// Playerê°€ ë™ì í• ë‹¹ë˜ëŠ” ì£¼ì†Œë€, ê°€ìƒ ì£¼ì†Œì´ë‹¤.
+	// í”„ë¡œê·¸ë¨ì„ ì‹¤í–‰í•  ë•Œë§ˆë‹¤ ê³„ì† ë°”ë€ë‹¤.
+	// ë”°ë¼ì„œ target ì´ë¼ëŠ” ì£¼ì†Œê°’ì„ íŒŒì¼ì— ì €ì¥í•´ë„
+	// ë‹¤ìŒì— í”„ë¡œê·¸ë¨ì— ë„ìš¸ ë•ŒëŠ” í•´ë‹¹ ì •ë³´ëŠ” ìœ íš¨í•˜ì§€ ì•Šê²Œ ëœë‹¤.
+	// ê³§ì´ê³§ëŒ€ë¡œ ë³µêµ¬í•  ìˆ˜ ì—†ëŠ” ê²ƒì´ë‹¤.
+	// vector ë„ ë§ˆì°¬ê°€ì§€. ë‚´ë¶€ì ìœ¼ë¡œ ë™ì  ë°°ì—´ì„ ë“¤ê³  ìˆìœ¼ë¯€ë¡œ
 
-	// Á÷·ÄÈ­ ÇÑ´Ù´Â °ÍÀº [byte ¹è¿­ È¤Àº string ¹è¿­]·Î ¸¸µé¾î¼­
-	// »ó´ë¹æ¿¡°Ô º¸³¾ ¼ö ÀÖ°Ô ¸¸µé¾îÁØ´Ù´Â °ÍÀÌ´Ù.
+	// ë„¤íŠ¸ì›Œí¬ í†µì‹ ì—ì„œë„ ë§ˆì°¬ê°€ì§€ì´ë‹¤.
+	// ë‚´ ë©”ëª¨ë¦¬ì—ì„œì˜ ì£¼ì†Œê°’ ì •ë³´ë¥¼ ìƒëŒ€ì—ê²Œ ë„˜ê²¨ë´¤ì
+	// ì•„ë¬´ëŸ° ì“¸ëª¨ê°€ ì—†ëŠ” ê²ƒì´ë‹¤.
+
+	// ì§ë ¬í™” í•œë‹¤ëŠ” ê²ƒì€ [byte ë°°ì—´ í˜¹ì€ string ë°°ì—´]ë¡œ ë§Œë“¤ì–´ì„œ
+	// ìƒëŒ€ë°©ì—ê²Œ ë³´ë‚¼ ìˆ˜ ìˆê²Œ ë§Œë“¤ì–´ì¤€ë‹¤ëŠ” ê²ƒì´ë‹¤.
 	Player* target = nullptr;
 	vector<int32> buffer;
 };
@@ -59,64 +49,54 @@ public :
 
 int main()
 {
-	ServerServiceRef service = std::make_shared<ServerService>(
+	ServerServiceRef service = MakeShared<ServerService>(
 		NetAddress(L"127.0.0.1", 7777),
-		std::make_shared<IocpCore>()   ,
-		[]()->SessionRef {return std::make_shared<GameSession>(); },
-		100);
+		MakeShared<IocpCore>(),
+		MakeShared<GameSession>, // TODO : SessionManager ë“±
+		50);
 
 	ASSERT_CRASH(service->Start());
-		
-	for (int32 i = 0; i < 2; ++i)
+
+	for (int32 i = 0; i < 5; i++)
 	{
 		GThreadManager->Launch([=]()
 			{
 				while (true)
 				{
 					service->GetIocpCore()->Dispatch();
-				}
+				}				
 			});
-	}
+	}	
 
-	WCHAR sendData3[1000] = L"°¡"; // UTF16 = Unicode (ÇÑ±Û/·Î¸¶ 2¹ÙÀÌÆ®)
+	WCHAR sendData3[1000] = L"ê°€"; // UTF16 = Unicode (í•œê¸€/ë¡œë§ˆ 2ë°”ì´íŠ¸)
 
 	while (true)
 	{
-		/*
-		( PKT_S_TEST_WRITE »ç¿ë ÀÌÀü ¹öÀü )
-		vector<BuffData> buffs{ BuffData {100, 1.5f}, BuffData{200, 2.3f}, BuffData {300, 0.7f } };
-		SendBufferRef sendBuffer = ServerPacketHandler::Make_S_TEST(1001, 100, 10, buffs, L"¾È³çÇÏ¼¼¿ä");
-		*/
+		// ProtoBuf ì‚¬ìš©í•˜ì—¬ í†µì‹ í•˜ê¸° 
+		// ProtoBuf => ì„ì‹œ ê°ì²´ ë§Œë“¤ì–´ì£¼ê³  Serialize ë¹µ ë•Œë ¤ì£¼ë©´ ëœë‹¤.
 
-		// [ PKT_S_TEST ]
-		PKT_S_TEST_WRITE pktWriter(1001, 100, 10);
+		// S_TEST í˜•íƒœì˜ íŒ¨í‚·ì„ ë§Œë“¤ì–´ì¤„ ê²ƒì´ë‹¤.
+		Protocol::S_TEST pkt;
+		pkt.set_id(1000);
+		pkt.set_hp(100);
+		pkt.set_attack(10);
 
-		// [ PKT_S_TEST ][BuffsListItem BuffsListItem BuffsListItem]
-		PKT_S_TEST_WRITE::BuffsList buffList = pktWriter.ReserveBuffsList(3);
-		buffList[0] = { 100, 1.5f };
-		buffList[1] = { 200, 2.3f };
-		buffList[2] = { 300, 0.7f };
-
-		PKT_S_TEST_WRITE::BuffsVictimsList vic0 = pktWriter.ReserveBuffsVictimsList(&buffList[0], 3);
+		// ê°€ë³€ ë°ì´í„° ì¶”ê°€í•´ì£¼ê¸° 
 		{
-			vic0[0] = 1000;
-			vic0[1] = 2000;
-			vic0[2] = 3000;
+			Protocol::BuffData* data = pkt.add_buffs();
+			data->set_buffid(100);
+			data->set_remaintime(1.2f);
+			data->add_victims(4000);
+		}
+		{
+			Protocol::BuffData* data = pkt.add_buffs();
+			data->set_buffid(200);
+			data->set_remaintime(2.5f);
+			data->add_victims(1000);
+			data->add_victims(2000);
 		}
 
-		PKT_S_TEST_WRITE::BuffsVictimsList vic1 = pktWriter.ReserveBuffsVictimsList(&buffList[1], 1);
-		{
-			vic1[0] = 1000;
-		}
-
-		PKT_S_TEST_WRITE::BuffsVictimsList vic2 = pktWriter.ReserveBuffsVictimsList(&buffList[2], 2);
-		{
-			vic2[0] = 3000;
-			vic2[1] = 5000;
-		}
-
-		SendBufferRef sendBuffer = pktWriter.CloseAndReturn();
-
+		SendBufferRef sendBuffer = ServerPacketHandler::MakeSendBuffer(pkt);
 		GSessionManager.Broadcast(sendBuffer);
 
 		this_thread::sleep_for(250ms);
@@ -124,3 +104,48 @@ int main()
 
 	GThreadManager->Join();
 }
+
+/*ìì²´ íŒ¨í‚· ë§Œë“¤ì–´ì„œ ë³´ë‚¼ ê²½ìš° (ê°€ë³€ ë°ì´í„°)*/
+// WCHAR sendData3[1000] = L"ê°€"; // UTF16 = Unicode (í•œê¸€/ë¡œë§ˆ 2ë°”ì´íŠ¸)
+// 
+// while (true)
+// {
+// 	/*
+// 	( PKT_S_TEST_WRITE ì‚¬ìš© ì´ì „ ë²„ì „ )
+// 	vector<BuffData> buffs{ BuffData {100, 1.5f}, BuffData{200, 2.3f}, BuffData {300, 0.7f } };
+// 	SendBufferRef sendBuffer = ServerPacketHandler::Make_S_TEST(1001, 100, 10, buffs, L"ì•ˆë…•í•˜ì„¸ìš”");
+// 	*/
+// 
+// 	// [ PKT_S_TEST ]
+// 	PKT_S_TEST_WRITE pktWriter(1001, 100, 10);
+// 
+// 	// [ PKT_S_TEST ][BuffsListItem BuffsListItem BuffsListItem]
+// 	PKT_S_TEST_WRITE::BuffsList buffList = pktWriter.ReserveBuffsList(3);
+// 	buffList[0] = { 100, 1.5f };
+// 	buffList[1] = { 200, 2.3f };
+// 	buffList[2] = { 300, 0.7f };
+// 
+// 	PKT_S_TEST_WRITE::BuffsVictimsList vic0 = pktWriter.ReserveBuffsVictimsList(&buffList[0], 3);
+// 	{
+// 		vic0[0] = 1000;
+// 		vic0[1] = 2000;
+// 		vic0[2] = 3000;
+// 	}
+// 
+// 	PKT_S_TEST_WRITE::BuffsVictimsList vic1 = pktWriter.ReserveBuffsVictimsList(&buffList[1], 1);
+// 	{
+// 		vic1[0] = 1000;
+// 	}
+// 
+// 	PKT_S_TEST_WRITE::BuffsVictimsList vic2 = pktWriter.ReserveBuffsVictimsList(&buffList[2], 2);
+// 	{
+// 		vic2[0] = 3000;
+// 		vic2[1] = 5000;
+// 	}
+// 
+// 	SendBufferRef sendBuffer = pktWriter.CloseAndReturn();
+// 
+// 	GSessionManager.Broadcast(sendBuffer);
+// 
+// 	this_thread::sleep_for(250ms);
+// }
